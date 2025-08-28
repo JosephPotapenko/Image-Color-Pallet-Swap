@@ -1,235 +1,3020 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Image Color Group Editor</title>
+  <meta charset="utf-8" />
+  <title>Palette Editor — 25 Palettes × 50 Variations</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #222;
-      color: #eee;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      gap: 20px;
-      padding: 20px;
+    :root {
+      --bg: #161616;
+      --panel: #222;
+      --muted: #aaa;
     }
-    #left-panel {
-      flex: 1;
-      text-align: center;
-    }
-    #right-panel {
-      flex: 1;
-      max-width: 400px;
-    }
-    input[type="file"] {
-      margin-bottom: 10px;
-    }
-    canvas {
-      max-width: 100%;
-      background: #111;
-      border: 2px solid #444;
-      border-radius: 10px;
-    }
-    .color-list {
+    html,body { margin:0; background:var(--bg); color:#eee; font-family:Inter,system-ui,Arial; min-height:100vh; }
+    .app {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
-      margin-top: 20px;
+      grid-template-columns: 1fr 1fr 360px;
+      gap:18px;
+      padding:18px;
+      min-height:100vh;
+      box-sizing:border-box;
     }
-    .color-item {
-      background: #333;
-      padding: 10px;
+
+    /* Left (image) */
+    #left { text-align:center; }
+    #left h2 { margin:6px 0 10px; font-weight:600; display: block; width: 100%; }
+    #fileInput { margin-bottom:12px; display: block; margin-left: auto; margin-right: auto; }
+    #canvas { 
+      max-width: none;
+      max-height: none;
+      border-radius: 10px; 
+      background: transparent; 
+      border: none;
+      object-fit: contain;
+      display: block;
+      position: relative;
+      image-rendering: pixelated;
+    }
+    
+    /* Canvas container to maintain consistent shape */
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      height: 60vh;
+      min-height: 300px;
       border-radius: 10px;
+      overflow: hidden;
+      background: #0b0b0b;
+      border: 2px solid #333;
+      cursor: grab;
+      margin: 0 auto;
+    }
+    
+    .canvas-container:active {
+      cursor: grabbing;
+    }
+    
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    .canvas-viewport {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
+      transform-origin: center center;
+      transition: transform 0.1s ease-out;
     }
-    .color-preview {
-      width: 40px;
-      height: 40px;
-      border-radius: 6px;
-      border: 1px solid #555;
+
+    /* Middle (extracted colors) */
+    #middle h2 { margin:6px 0; font-weight:600; }
+    .color-list {
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap:8px;
+      margin-top:12px;
+      max-height:90vh;
+      overflow-y:auto;
+      overflow-x:hidden;
+      padding:8px;
+      padding-right:6px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: rgba(34, 34, 34, 0.3);
+      position: relative;
     }
-    .color-inputs {
-      flex-grow: 1;
+    .color-list::before {
+      content: "↕ Scroll for more colors • Click to highlight • Esc to clear";
+      position: absolute;
+      top: 4px;
+      right: 20px;
+      font-size: 10px;
+      color: #666;
+      pointer-events: none;
+      opacity: 0.7;
     }
-    .color-inputs input {
-      width: 100%;
-      margin: 3px 0;
-      padding: 4px;
-      border: none;
+    .color-list::-webkit-scrollbar {
+      width: 10px;
+    }
+    .color-list::-webkit-scrollbar-track {
+      background: #333;
+      border-radius: 5px;
+    }
+    .color-list::-webkit-scrollbar-thumb {
+      background: #666;
+      border-radius: 5px;
+      border: 1px solid #444;
+    }
+    .color-list::-webkit-scrollbar-thumb:hover {
+      background: #888;
+    }
+    .color-item {
+      display:flex;
+      gap:6px;
+      align-items:center;
+      background:var(--panel);
+      border-radius:8px;
+      padding:4px;
+    }
+    .swatch {
+      width:22px; height:22px; border-radius:5px; border:1px solid rgba(0,0,0,0.4); flex-shrink:0; cursor:pointer; transition: all 0.2s ease;
+    }
+    .swatch:hover {
+      transform: scale(1.1);
+      border-color: #fff;
+      box-shadow: 0 0 10px rgba(255,255,255,0.5);
+    }
+    .swatch.highlighted {
+      border: 3px solid #9eebfc;
+      box-shadow: 0 0 15px rgba(118, 223, 212, 0.8);
+      transform: scale(1.15);
+      animation: highlightPulse 2s ease-in-out infinite;
+    }
+    .swatch.replacement-mode {
+      border: 3px solid #ff6b6b !important;
+      box-shadow: 0 0 15px rgba(255, 107, 107, 0.8) !important;
+      animation: replacementPulse 1s ease-in-out infinite !important;
+    }
+    .swatch.dimmed {
+      opacity: 0.3;
+      transition: opacity 0.3s ease;
+    }
+    .palette-cell.replacement-target {
+      border: 2px solid #4CAF50 !important;
+      transform: scale(1.2) !important;
+      box-shadow: 0 0 10px rgba(76, 175, 80, 0.6) !important;
+    }
+    @keyframes highlightPulse {
+      0% { 
+        border-color: #ff6b6b;
+        box-shadow: 0 0 15px rgba(255, 107, 107, 0.8);
+      }
+      25% { 
+        border-color: #4ecdc4;
+        box-shadow: 0 0 15px rgba(78, 205, 196, 0.8);
+      }
+      50% { 
+        border-color: #45b7d1;
+        box-shadow: 0 0 15px rgba(69, 183, 209, 0.8);
+      }
+      75% { 
+        border-color: #f9ca24;
+        box-shadow: 0 0 15px rgba(249, 202, 36, 0.8);
+      }
+      100% { 
+        border-color: #ff6b6b;
+        box-shadow: 0 0 15px rgba(255, 107, 107, 0.8);
+      }
+    }
+    
+    @keyframes replacementPulse {
+      0%, 100% { 
+        border-color: #ff6b6b;
+        box-shadow: 0 0 15px rgba(255, 107, 107, 0.8);
+      }
+      50% { 
+        border-color: #ff9999;
+        box-shadow: 0 0 20px rgba(255, 153, 153, 1);
+      }
+    }
+    
+    /* Image highlight overlay animation */
+    .image-highlight-overlay {
+      animation: imageFade 3s ease-in-out infinite;
+    }
+    
+    @keyframes imageFade {
+      0%, 100% { 
+        opacity: 0.05;
+        box-shadow: 0 0 0px rgba(173, 216, 230, 0);
+      }
+      50% { 
+        opacity: 1;
+        box-shadow: 0 0 20px rgba(173, 216, 230, 0.2);
+      }
+    }
+    
+    /* Adjustment button styles */
+    .adjustment-btn {
+      transition: all 0.2s ease;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .adjustment-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .adjustment-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .inputs { flex:1; display:flex; flex-direction:column; gap:3px; }
+    .inputs input[type="color"] { height:24px; border-radius:6px; border:none; padding:0; }
+    .inputs input[type="text"] { height:22px; border-radius:6px; border:none; padding:3px; background:#141414; color:#eee; font-size:11px; }
+
+    /* Right (palettes tabs) */
+    #right { 
+      background:var(--panel); 
+      border-radius:10px; 
+      padding:10px; 
+      display:flex; 
+      flex-direction:column; 
+      gap:10px; 
+      max-height:200vh; 
+      overflow-y:auto;
+    }
+    #right::-webkit-scrollbar {
+      width: 8px;
+    }
+    #right::-webkit-scrollbar-track {
+      background: #333;
       border-radius: 4px;
+    }
+    #right::-webkit-scrollbar-thumb {
+      background: #555;
+      border-radius: 4px;
+    }
+    #right::-webkit-scrollbar-thumb:hover {
+      background: #777;
+    }
+    .tabs { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+    .tab-btn {
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      background:#3a3a3a; border-radius:8px; padding:6px 8px; min-width:72px; color:#eee;
+      font-size:12px; cursor:pointer; border:2px solid transparent;
+    }
+    .tab-btn.active { border-color:#cfcfcf; background:#fff; color:#111; }
+    .tab-preview { display:flex; gap:2px; margin-top:4px; }
+    .tab-preview div { width:12px; height:12px; border-radius:2px; }
+
+    .palette-grid { 
+      display:flex; 
+      flex-wrap:wrap; 
+      gap:8px; 
+      margin-top:6px; 
+      height: 200px;
+      max-height:85vh; 
+      overflow-y:auto;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(0,0,0,0.2);
+      position: relative;
+    }
+    .palette-grid::before {
+      content: "↕ Scroll • Click to apply • 2× click to edit (custom) • 75 colors total";
+      position: absolute;
+      top: 4px;
+      left: 8px;
+      font-size: 9px;
+      color: #666;
+      pointer-events: none;
+      opacity: 0.8;
+      z-index: 1;
+    }
+    .palette-grid::-webkit-scrollbar {
+      width: 8px;
+    }
+    .palette-grid::-webkit-scrollbar-track {
+      background: #333;
+      border-radius: 4px;
+    }
+    .palette-grid::-webkit-scrollbar-thumb {
+      background: #666;
+      border-radius: 4px;
+      border: 1px solid #444;
+    }
+    .palette-grid::-webkit-scrollbar-thumb:hover {
+      background: #888;
+    }
+    .palette-cell { width:24px; height:24px; border-radius:4px; cursor:pointer; border:1px solid rgba(0,0,0,0.35); transition: transform 0.1s ease; }
+    .palette-cell:hover { transform: scale(1.1); border-color: #fff; }
+
+    header.controls { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+    .small { font-size:12px; color:var(--muted); }
+    .btn { background:#2b2b2b; color:#eee; border:none; padding:6px 8px; border-radius:6px; cursor:pointer; }
+    .btn:hover { background:#3a3a3a; }
+    .btn:active { transform:translateY(1px); }
+    .btn.primary { background:#0066cc; }
+    .btn.primary:hover { background:#0056b3; }
+    .btn.success { background:#28a745; }
+    .btn.success:hover { background:#218838; }
+    .btn.danger { background:#dc3545; }
+    .btn.danger:hover { background:#c82333; }
+    
+    /* Custom Palette Creation */
+    .custom-palette-controls {
+      background: #2a2a2a;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      border: 1px solid #444;
+    }
+    .custom-palette-name {
+      width: 100%;
+      padding: 6px;
+      margin-bottom: 8px;
+      background: #141414;
+      color: #eee;
+      border: 1px solid #555;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .custom-palette-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .delete-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 16px;
+      height: 16px;
+      background: #dc3545;
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 10px;
+      cursor: pointer;
+      display: none;
+    }
+    .tab-btn:hover .delete-btn {
+      display: block;
+    }
+    .tab-btn {
+      position: relative;
+    }
+    
+    /* Responsive design */
+    @media (max-width: 1200px) {
+      .app {
+        grid-template-columns: 1fr 300px;
+        grid-template-rows: auto auto;
+      }
+      #left {
+        grid-column: 1 / -1;
+      }
+      #middle {
+        grid-column: 1;
+        grid-row: 2;
+      }
+      #right {
+        grid-column: 2;
+        grid-row: 2;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        gap: 12px;
+        padding: 12px;
+      }
+      #left, #middle, #right {
+        grid-column: 1;
+      }
+      #left { grid-row: 1; }
+      #middle { grid-row: 2; }
+      #right { grid-row: 3; }
+      
+      .color-list {
+        max-height: 50vh;
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+      #right {
+        max-height: 60vh;
+      }
+      .palette-grid {
+        max-height: 50vh;
+        height: 150px;
+      }
+      .custom-palette-actions {
+        flex-direction: column;
+      }
+      .custom-palette-actions .btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="left-panel">
-    <h2>Upload Image</h2>
-    <input type="file" id="fileInput" accept="image/*"><br>
-    <canvas id="canvas"></canvas>
-  </div>
+  <div class="app">
+    <div id="left">
+      <h2>Upload Image</h2>
+      <input id="fileInput" type="file" accept="image/*">
+      <div id="imageControls" style="margin-top:10px; display:none;">
+        <button id="saveImagePalette" class="btn primary" title="Save the extracted colors from this image as a new palette (Ctrl+I)">
+          💾 Save Image Palette
+        </button>
+        <button id="replaceWithPalette" class="btn success" title="Replace image colors with closest matches from the active palette (Ctrl+R)" style="margin-left: 8px;">
+          🎨 Replace with Palette
+        </button>
+        <div style="margin-top: 8px;">
+          <button id="undoColors" class="btn" title="Undo last 10 color changes (Ctrl+Z)" style="margin-right: 8px;">
+            ↶ Undo
+          </button>
+          <button id="redoColors" class="btn" title="Redo next 10 color changes (Ctrl+Y)">
+            ↷ Redo
+          </button>
+        </div>
+        <div style="margin-top: 8px; font-size: 12px;">
+          <label style="color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            <input type="checkbox" id="confirmSwaps" checked style="margin: 0;">
+            <span>Confirm palette swaps</span>
+          </label>
+        </div>
+      </div>
+      <div class="canvas-container" style="margin-top:10px;">
+        <div class="canvas-wrapper">
+          <div class="canvas-viewport" id="canvasViewport">
+            <canvas id="canvas"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Image Adjustment Controls -->
+      <div class="image-adjustments" style="margin-top: 15px; background: var(--panel); padding: 12px; border-radius: 8px; border: 1px solid #333;">
+        <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #ccc; text-align: center;">Image Adjustments</h3>
+        
+        <div class="adjustment-controls" style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Brightness -->
+          <div class="adjustment-control">
+            <label style="display: block; font-size: 12px; color: #aaa; margin-bottom: 6px;">
+              ☀️ Brightness: <span id="brightnessValue">0</span>
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="adjustment-btn" id="brightnessDown" style="background: #4CAF50; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">−</button>
+              <input type="range" id="brightnessSlider" min="-100" max="100" value="0" 
+                     style="flex: 1; accent-color: #4CAF50;">
+              <button class="adjustment-btn" id="brightnessUp" style="background: #4CAF50; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">+</button>
+            </div>
+          </div>
+          
+          <!-- Saturation -->
+          <div class="adjustment-control">
+            <label style="display: block; font-size: 12px; color: #aaa; margin-bottom: 6px;">
+              🎨 Saturation: <span id="saturationValue">0</span>
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="adjustment-btn" id="saturationDown" style="background: #FF9800; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">−</button>
+              <input type="range" id="saturationSlider" min="-100" max="100" value="0" 
+                     style="flex: 1; accent-color: #FF9800;">
+              <button class="adjustment-btn" id="saturationUp" style="background: #FF9800; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">+</button>
+            </div>
+          </div>
+          
+          <!-- Color Pop -->
+          <div class="adjustment-control">
+            <label style="display: block; font-size: 12px; color: #aaa; margin-bottom: 6px;">
+              💥 Color Pop: <span id="colorPopValue">0</span>
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="adjustment-btn" id="colorPopDown" style="background: #E91E63; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">−</button>
+              <input type="range" id="colorPopSlider" min="0" max="100" value="0" 
+                     style="flex: 1; accent-color: #E91E63;">
+              <button class="adjustment-btn" id="colorPopUp" style="background: #E91E63; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">+</button>
+            </div>
+          </div>
+          
+          <!-- Shadow -->
+          <div class="adjustment-control">
+            <label style="display: block; font-size: 12px; color: #aaa; margin-bottom: 6px;">
+              🌑 Shadow: <span id="shadowValue">0</span>
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="adjustment-btn" id="shadowDown" style="background: #9C27B0; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">−</button>
+              <input type="range" id="shadowSlider" min="-100" max="100" value="0" 
+                     style="flex: 1; accent-color: #9C27B0;">
+              <button class="adjustment-btn" id="shadowUp" style="background: #9C27B0; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">+</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Control Buttons -->
+        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
+          <button id="resetAdjustments" class="btn" style="font-size: 12px; padding: 6px 12px;">
+            🔄 Reset All
+          </button>
+          <button id="centerImage" class="btn" style="font-size: 12px; padding: 6px 12px;">
+            🎯 Center
+          </button>
+          <button id="downloadImage" class="btn primary" style="font-size: 12px; padding: 6px 12px;">
+            💾 Download
+          </button>
+        </div>
+      </div>
+    </div>
 
-  <div id="right-panel">
-    <h2>Editable Palette</h2>
-    <div class="color-list" id="colorList"></div>
+    <div id="middle">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h2>Extracted Palette</h2>
+        <div class="small">Four columns • Click to highlight • Double-click to edit</div>
+      </div>
+      <div class="color-list" id="colorList"></div>
+    </div>
+
+    <div id="right">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:600;">Palettes (<span id="paletteCount">25</span>)</div>
+          <div class="small">Preview first 10 swatches on tab</div>
+        </div>
+        <div>
+          <button id="toggleRecolor" class="btn">Toggle Recolor: ON</button>
+        </div>
+      </div>
+
+      <div class="custom-palette-controls">
+        <input type="text" class="custom-palette-name" placeholder="Enter palette name..." id="customPaletteName">
+        <div class="custom-palette-actions">
+          <button id="saveCurrentPalette" class="btn success" title="Save the currently viewed palette with the entered name">Save Current</button>
+          <button id="createFromExtracted" class="btn primary" title="Create a new palette from the extracted image colors">From Extracted</button>
+          <button id="createEmpty" class="btn" title="Create a new empty palette with 75 white colors">Create Empty</button>
+          <button id="importPalette" class="btn" title="Import palettes from a JSON file">Import</button>
+          <button id="exportPalettes" class="btn" title="Export all custom palettes to a JSON file (Ctrl+E)">Export All</button>
+        </div>
+        <div class="small" style="margin-top: 4px;">
+          💡 Tip: Double-click custom palette colors to edit • Ctrl+S to save • Ctrl+I to save image palette • Ctrl+R to replace with palette • Ctrl+Z/Y to undo/redo
+        </div>
+      </div>
+
+      <div class="tabs" id="tabButtons"></div>
+      <div id="tabLabel" style="font-size:13px;font-weight:600;margin-top:6px;"></div>
+      <div class="palette-grid" id="tabContent"></div>
+    </div>
   </div>
 
   <script>
+    /************************************************************************
+     * 25 base palettes (anchor colors). We'll programmatically expand each
+     * into 50 tonal variations at runtime.
+     ************************************************************************/
+    const BASE_PALETTES = {
+      "Recent": [],
+
+      "NaturalWorld": [
+  // Greens (grass, leaves, moss)
+  "#1b5e20","#2e7d32","#388e3c","#43a047","#4caf50","#66bb6a","#81c784","#a5d6a7","#c8e6c9","#e8f5e9",
+  "#33691e","#558b2f","#689f38","#7cb342","#8bc34a","#9ccc65","#aed581","#c5e1a5","#dcedc8","#f1f8e9",
+  // Browns (earth, trunks, soil)
+  "#3e2723","#4e342e","#5d4037","#6d4c41","#795548","#8d6e63","#a1887f","#bcaaa4","#d7ccc8","#efebe9",
+  "#4b3621","#5c4033","#6e4b3c","#7f5f4d","#8e735e","#9d8570","#ac9982","#bbaa95","#ccbca8","#ded0bb",
+  // Blues (water, sky)
+  "#0d47a1","#1565c0","#1976d2","#1e88e5","#2196f3","#42a5f5","#64b5f6","#90caf9","#bbdefb","#e3f2fd",
+  "#01579b","#0277bd","#0288d1","#039be5","#29b6f6","#4fc3f7","#81d4fa","#b3e5fc","#e1f5fe","#f0faff"
+],
+"VillageArchitecture": [
+  // Wood tones
+  "#3e2723","#4e342e","#6d4c41","#795548","#8d6e63","#a1887f","#bcaaa4","#d7ccc8","#efebe9","#fafafa",
+  "#5d4037","#6e4b3c","#7e5d4f","#8f6f61","#9f8173","#af9385","#c0a597","#d1b8a9","#e3ccbc","#f5e0cf",
+  // Stone / clay / bricks
+  "#424242","#616161","#757575","#9e9e9e","#bdbdbd","#e0e0e0","#eeeeee","#f5f5f5","#d7ccc8","#a1887f",
+  "#6d4c41","#8d6e63","#a1887f","#bcaaa4","#d7ccc8","#efebe9","#ffcc80","#ffb74d","#ffa726","#ff9800",
+  // Metals
+  "#b0bec5","#90a4ae","#78909c","#607d8b","#546e7a","#455a64","#37474f","#263238","#cfd8dc","#eceff1",
+  "#ffd700","#ffeb3b","#fbc02d","#f57f17","#ff6f00","#ff8f00","#ffa000","#ffb300","#ffd54f","#fff176"
+], "CharactersClothing": [
+  // Skin tones (light → dark)
+  "#ffede0","#ffe0bd","#ffcd94","#eac086","#d1a36a","#a47149","#8d5524","#5c3a1a","#3d2b1f","#1c140d",
+  "#f1c27d","#e0ac69","#c68642","#8d5524","#5a3b1a","#3d2814","#2a1c10","#1f1209","#120a05","#0a0502",
+  // Hair colors
+  "#2c1b0c","#4b2e12","#6a4020","#8c5a2b","#b98e68","#d2b48c","#a67c52","#825c36","#3b3024","#1a0f07",
+  "#2e2e2e","#444444","#666666","#999999","#cccccc","#ffffff","#3d2b1f","#5c4033","#704214","#965a38",
+  // Clothing dyes
+  "#880e4f","#ad1457","#c2185b","#d81b60","#e91e63","#f06292","#f48fb1","#f8bbd0","#fce4ec","#fff0f5",
+  "#1a237e","#283593","#303f9f","#3949ab","#3f51b5","#5c6bc0","#7986cb","#9fa8da","#c5cae9","#e8eaf6"
+], 
+"MagicFantasy": [
+  // Arcane blues & purples
+  "#311b92","#4527a0","#512da8","#5e35b1","#673ab7","#7e57c2","#9575cd","#b39ddb","#d1c4e9","#ede7f6",
+  "#4a148c","#6a1b9a","#7b1fa2","#8e24aa","#9c27b0","#ab47bc","#ba68c8","#ce93d8","#e1bee7","#f3e5f5",
+  // Elemental magic
+  "#ff5722","#ff7043","#ff8a65","#ffab91","#ffccbc","#ff9800","#ffa726","#ffb74d","#ffcc80","#ffe0b2",
+  "#00e676","#00c853","#1de9b6","#00bfa5","#00acc1","#0097a7","#00838f","#006064","#004d40","#00332d",
+  // Potions / effects
+  "#c2185b","#d32f2f","#e64a19","#f57c00","#fbc02d","#7cb342","#388e3c","#0288d1","#1976d2","#303f9f"
+], 
+"DarkDungeon": [
+  // Rocks, caves, shadows
+  "#212121","#263238","#37474f","#455a64","#546e7a","#607d8b","#78909c","#90a4ae","#b0bec5","#cfd8dc",
+  "#1c1c1c","#2e2e2e","#3d3d3d","#4e4e4e","#616161","#757575","#9e9e9e","#bdbdbd","#d6d6d6","#eeeeee",
+  // Blood, gore
+  "#b71c1c","#c62828","#d32f2f","#e53935","#f44336","#ef5350","#e57373","#ef9a9a","#ffcdd2","#ffebee",
+  "#880e4f","#ad1457","#c2185b","#d81b60","#e91e63","#f06292","#f48fb1","#f8bbd0","#fce4ec","#fff0f5",
+  // Bones, torches
+  "#fff8e1","#ffecb3","#ffe082","#ffd54f","#ffca28","#ffc107","#ffb300","#ffa000","#ff8f00","#ff6f00",
+  "#fafafa","#f5f5f5","#eeeeee","#e0e0e0","#bdbdbd","#9e9e9e","#757575","#616161","#424242","#212121"
+],
+
+       "FlatUI": [
+    "#1abc9c","#16a085","#2ecc71","#27ae60","#3498db","#2980b9","#9b59b6","#8e44ad","#34495e","#2c3e50",
+    "#1abca8","#16a08b","#2ecc77","#27ae66","#3498d7","#2980bf","#9b59c0","#8e44b3","#34495a","#2c3e56",
+    "#1abd94","#16a074","#2ecc6b","#27ae50","#3498cf","#2980b7","#9b59b2","#8e44a5","#344950","#2c3e4a",
+    "#1ac0a2","#16a192","#2ecc7f","#27ae70","#3498e0","#2980c5","#9b59d0","#8e44b8","#34496a","#2c3e60",
+    "#1abcaa","#16a09b","#2ecc88","#27ae7a","#3498e7","#2980cb","#9b59d8","#8e44bf","#344973","#2c3e6a",
+    "#1abdac","#16a0a0","#2ecc91","#27ae85","#3498ef","#2980d3","#9b59e0","#8e44c7","#34497b","#2c3e73",
+    "#1ac0b5","#16a1a5","#2ecc9a","#27ae8f","#3498f5","#2980da","#9b59e8","#8e44cf","#344983","#2c3e7b",
+    "#1abcc0","#16a1af","#2ecca2","#27ae99","#3498fa","#2980e0","#9b59f0","#8e44d5","#34498b","#2c3e83",
+    "#1abdca","#16a1b8","#2eccab","#27aea2","#3498ff","#2980e6","#9b59f8","#8e44dc","#344993","#2c3e8b",
+    "#1acecf","#16a2c0","#2eccb4","#27aead","#3498ff","#2980ec","#9b59ff","#8e44e3","#34499b","#2c3e93"
+  ],
+
+  "Material": [
+    "#e57373","#f06292","#ba68c8","#9575cd","#7986cb","#64b5f6","#4fc3f7","#4dd0e1","#4db6ac","#81c784",
+    "#aed581","#e5736b","#f06284","#ba68c0","#9575c5","#7986c3","#64b5f0","#4fc3eb","#4dd0da","#4db6a4",
+    "#81c780","#aed580","#e57366","#f0627f","#ba68b8","#9575c0","#7986ba","#64b5eb","#4fc3e0","#4dd0d2",
+    "#4db6a0","#81c774","#aed575","#e57361","#f0627b","#ba68b0","#9575b8","#7986b2","#64b5e5","#4fc3d8",
+    "#4dd0c6","#4db698","#81c768","#aed56a","#e5735c","#f06274","#ba68a8","#9575b0","#7986aa","#64b5dd",
+    "#4fc3d0","#4dd0ba","#4db68f","#81c75c","#aed555","#e57357","#f0626f","#ba689f","#9575a8","#7986a2",
+    "#64b5d5","#4fc3c8","#4dd0b2","#4db684","#81c750","#aed540","#e57352","#f0626b","#ba6897","#9575a0",
+    "#798699","#64b5cc","#4fc3bf","#4dd0a9","#4db679","#81c73f","#aed52b","#e5734d","#f06264","#ba6890",
+    "#957598","#798692","#64b5c3","#4fc3b4","#4dd096","#4db65f","#81c730","#aed517","#e57348","#f0625f",
+    "#ba6888","#957596","#79868f","#64b5bb","#4fc3ab","#4dd096","#4db65f","#81c720","#aed505","#e57344"
+  ],
+
+  "Tailwind": [
+    "#f87171","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#818cf8","#c084fc","#e879f9",
+    "#f8717a","#fb9242","#fbbf2d","#a3e63b","#34d39f","#22d3f3","#60a5ff","#818cf0","#c084f5","#e879f0",
+    "#f87183","#fb9250","#fbbf36","#a3e642","#34d3a8","#22d3f9","#60a5ff","#818cf3","#c084f9","#e879ff",
+    "#f8718c","#fb9260","#fbbf40","#a3e648","#34d3b0","#22d3ff","#60a5ff","#818cf6","#c084ff","#e879ff",
+    "#f87195","#fb9272","#fbbf4a","#a3e64f","#34d3b8","#22d3ff","#60a5ff","#818cf9","#c084ff","#e879ff",
+    "#f8719e","#fb9284","#fbbf54","#a3e656","#34d3c0","#22d3ff","#60a5ff","#818cff","#c084ff","#e879ff",
+    "#f871a7","#fb9296","#fbbf5e","#a3e65d","#34d3c8","#22d3ff","#60a5ff","#818cff","#c084ff","#e879ff",
+    "#f871b0","#fb92a8","#fbbf68","#a3e664","#34d3d0","#22d3ff","#60a5ff","#818cff","#c084ff","#e879ff",
+    "#f871b9","#fb92ba","#fbbf72","#a3e66b","#34d3d8","#22d3ff","#60a5ff","#818cff","#c084ff","#e879ff",
+    "#f871c2","#fb92cc","#fbbf7c","#a3e672","#34d3e0","#22d3ff","#60a5ff","#818cff","#c084ff","#e879ff"
+  ],
+
+  "Pastel": [
+    "#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff","#fffffc","#d0f4de",
+    "#ffb5b5","#ffddaa","#feffbf","#cbffca","#9cf7ff","#a5c6ff","#c0bfff","#ffd0ff","#fffff0","#d3f7e0",
+    "#ffbebe","#ffe0b0","#feffc9","#cdffcf","#9ef8ff","#aac8ff","#c3cfff","#ffd5ff","#ffffe2","#d5f9e0",
+    "#ffc7c7","#ffe4b5","#feffd2","#d0ffd5","#a0f9ff","#afcbff","#c7d3ff","#ffdaff","#ffffe5","#d8fbe0",
+    "#ffd0d0","#ffe7bb","#feffd9","#d3ffd9","#a1fbff","#b2ceff","#cad7ff","#ffedff","#ffffea","#dbfde0",
+    "#ffd8d8","#ffebc0","#feffe0","#d5ffdd","#a3fcff","#b4d0ff","#cddcff","#fff0ff","#ffffef","#ddffe0",
+    "#ffe0e0","#fff3c5","#fefff1","#d8ffe0","#a5fdff","#b5d3ff","#d0e0ff","#fff3ff","#fffff4","#dfffe0",
+    "#ffe7e7","#fff7ca","#fefff7","#dbffe0","#a7fdff","#b6d6ff","#d2e3ff","#fff6ff","#fffff9","#e1ffe0",
+    "#ffefef","#fffad0","#fefffe","#dfffdf","#a9feff","#b7daff","#d4e5ff","#fff9ff","#fffffc","#e3ffe0",
+    "#fff7f7","#fffbda","#feffff","#e2ffe0","#abfeff","#b9ddff","#d6e7ff","#fffcff","#ffffff","#e5ffe0"
+  ],
+
+  "Warm": [
+    "#ff3b30","#ff453a","#ff6b6b","#ff7f50","#ff9e7d","#ffb48f","#ffc3a0","#ffd1b3","#ffe0c2","#ffeccc",
+    "#ff3f35","#ff4b3f","#ff706d","#ff8260","#ff9f84","#ffb791","#ffc5a2","#ffd3b8","#ffe1c7","#fff0d0",
+    "#ff4339","#ff4e43","#ff736f","#ff8565","#ffa086","#ffba97","#ffc7a6","#ffd5bc","#ffe3cb","#fff2d4",
+    "#ff473d","#ff5248","#ff7674","#ff8869","#ffa18a","#ffbc9b","#ffc9aa","#ffd7c0","#ffe5cf","#fff3d8",
+    "#ff4b41","#ff564c","#ff7a76","#ff8b6d","#ffa48d","#ffbf9f","#ffccad","#ffd9c3","#ffe7d2","#fff5db",
+    "#ff4f45","#ff5a50","#ff7e7a","#ff8f71","#ffa690","#ffc2a3","#ffd0b0","#ffdcd5","#ffe9e3","#fff7e0",
+    "#ff5349","#ff5f56","#ff827e","#ff9380","#ffa993","#ffc6a8","#ffd3b5","#ffe0ca","#ffeedb","#fff8e5",
+    "#ff574d","#ff635c","#ff867c","#ff977a","#ffad97","#ffc9ae","#ffd6bb","#ffe3d1","#fff1e0","#fff9ea",
+    "#ff5b51","#ff6760","#ff8a7d","#ff9b7e","#ffb19b","#ffccba","#ffd9c7","#ffe6dc","#fff3eb","#fffaef",
+    "#ff5f55","#ff6b64","#ff8e82","#ff9f85","#ffb59f","#ffd0be","#ffddcb","#ffe9e0","#fff6ef","#fffaf3",
+    "#ff6359","#ff6f68","#ff927f","#ffa182","#ffb9a3","#ffd3c1","#ffe0ce","#ffebe6","#fff8f2","#fffdf7",
+    "#ff675d","#ff716c","#ff967d","#ffa585","#ffbda7","#ffd7c4","#ffe4d1","#fff0e6","#fffcee","#fffefb",
+    "#ff6b61","#ff756c","#ff9a81","#ffab87","#ffc0aa","#ffd9c7","#ffe6d3","#fff2eb","#fffdf3","#fffffb"
+  ],
+      "Cool": [
+  "#00f0ff","#00e5ff","#00d9ff","#00ceff","#00c2ff","#00b7ff","#00abff","#00a0ff","#0094ff","#0089ff",
+  "#00f5ff","#00ebff","#00dfff","#00d4ff","#00c8ff","#00bdff","#00b1ff","#00a6ff","#009aff","#008fff",
+  "#00faff","#00efff","#00e3ff","#00d8ff","#00ccff","#00c1ff","#00b5ff","#00aaff","#009eff","#0093ff",
+  "#00ffff","#00f4ff","#00e8ff","#00ddff","#00d1ff","#00c6ff","#00baff","#00afff","#00a3ff","#0098ff",
+  "#00f9ff","#00edff","#00e2ff","#00d6ff","#00cbff","#00bfff","#00b4ff","#00a8ff","#009dff","#0091ff",
+  "#00f7ff","#00ecff","#00e0ff","#00d5ff","#00c9ff","#00beff","#00b2ff","#00a7ff","#009bff","#0090ff",
+  "#00f3ff","#00e8ff","#00dcff","#00d1ff","#00c5ff","#00baff","#00aeff","#00a3ff","#0097ff","#008cff",
+  "#00f1ff","#00e5ff","#00daff","#00ceff","#00c3ff","#00b7ff","#00acff","#00a0ff","#0095ff","#0089ff",
+  "#00eeff","#00e3ff","#00d7ff","#00ccff","#00c0ff","#00b5ff","#00a9ff","#009eff","#0092ff","#0087ff",
+  "#00ecff","#00e0ff","#00d5ff","#00c9ff","#00beff","#00b2ff","#00a7ff","#009bff","#0090ff","#0085ff"
+],
+
+"Neon": [
+  "#ff00ff","#ff00e5","#ff00cc","#ff00b2","#ff0099","#ff0080","#ff0066","#ff004d","#ff0033","#ff001a",
+  "#ff33ff","#ff33e5","#ff33cc","#ff33b2","#ff3399","#ff3380","#ff3366","#ff334d","#ff3333","#ff331a",
+  "#ff66ff","#ff66e5","#ff66cc","#ff66b2","#ff6699","#ff6680","#ff6666","#ff664d","#ff6633","#ff661a",
+  "#ff99ff","#ff99e5","#ff99cc","#ff99b2","#ff9999","#ff9980","#ff9966","#ff994d","#ff9933","#ff991a",
+  "#ffccff","#ffcce5","#ffcccc","#ffccb2","#ffcc99","#ffcc80","#ffcc66","#ffcc4d","#ffcc33","#ffcc1a",
+  "#ffffff","#ffe5ff","#ffccff","#ffb2ff","#ff99ff","#ff80ff","#ff66ff","#ff4dff","#ff33ff","#ff1aff",
+  "#ff00ff","#e500ff","#cc00ff","#b200ff","#9900ff","#8000ff","#6600ff","#4d00ff","#3300ff","#1a00ff",
+  "#ff33ff","#e533ff","#cc33ff","#b233ff","#9933ff","#8033ff","#6633ff","#4d33ff","#3333ff","#1a33ff",
+  "#ff66ff","#e566ff","#cc66ff","#b266ff","#9966ff","#8066ff","#6666ff","#4d66ff","#3366ff","#1a66ff",
+  "#ff99ff","#e599ff","#cc99ff","#b299ff","#9999ff","#8099ff","#6699ff","#4d99ff","#3399ff","#1a99ff"
+],
+
+"Earth": [
+  "#7b3f00","#8b4513","#a0522d","#cd853f","#deb887","#f5deb3","#ffe4c4","#fff8dc","#faf0e6","#fdf5e6",
+  "#7c3f01","#8c4514","#a1522e","#cd863f","#deba88","#f5dfb4","#ffe5c5","#fff8de","#faf1e6","#fdf6e6",
+  "#7d4002","#8d4615","#a2532f","#cd873f","#deb988","#f5e0b5","#ffe6c6","#fff9de","#faf2e7","#fdf7e7",
+  "#7e4103","#8e4716","#a35430","#cd883f","#deb988","#f5e1b5","#ffe7c7","#fff9df","#faf3e7","#fdf8e7",
+  "#7f4204","#8f4817","#a45531","#cd893f","#deb989","#f5e2b6","#ffe8c8","#fffade","#faf4e8","#fdf9e8",
+  "#804305","#904918","#a55632","#cd8a3f","#deba8a","#f5e3b7","#ffe9c9","#fffbdf","#faf5e8","#fdfaeb",
+  "#814406","#914a19","#a55733","#cd8b3f","#deba8b","#f5e4b8","#ffeadc","#fffcdf","#faf6e9","#fdfbeb",
+  "#824507","#924b1a","#a55834","#cd8c3f","#deba8c","#f5e5b9","#ffeccd","#fffddf","#faf7ea","#fdfceb",
+  "#834608","#934c1b","#a55935","#cd8d3f","#deba8d","#f5e6ba","#ffeecd","#fffedf","#faf8eb","#fdfdeb",
+  "#844709","#944d1c","#a55a36","#cd8e3f","#deba8e","#f5e7bb","#ffefce","#fffee0","#faf9ec","#fdfeec"
+],
+
+"Vaporwave": [
+  "#ff77ff","#ff66ff","#ff55ff","#ff44ff","#ff33ff","#ff22ff","#ff11ff","#ff00ff","#ee00ee","#dd00dd",
+  "#cc00cc","#bb00bb","#aa00aa","#990099","#880088","#770077","#660066","#550055","#440044","#330033",
+  "#ff88ff","#ff77ee","#ff66dd","#ff55cc","#ff44bb","#ff33aa","#ff2299","#ff1188","#ff0077","#ee0066",
+  "#dd0055","#cc0044","#bb0033","#aa0022","#990011","#880000","#770000","#660000","#550000","#440000",
+  "#ff99ff","#ff88ee","#ff77dd","#ff66cc","#ff55bb","#ff44aa","#ff3399","#ff2288","#ff1177","#ff0066",
+  "#ee0055","#dd0044","#cc0033","#bb0022","#aa0011","#990000","#880000","#770000","#660000","#550000",
+  "#ffaaee","#ff99dd","#ff88cc","#ff77bb","#ff66aa","#ff5599","#ff4488","#ff3377","#ff2266","#ff1155",
+  "#ee0044","#dd0033","#cc0022","#bb0011","#aa0000","#990000","#880000","#770000","#660000","#550000",
+  "#ffbbff","#ffaaee","#ff99dd","#ff88cc","#ff77bb","#ff66aa","#ff5599","#ff4488","#ff3377","#ff2266",
+  "#ff1155","#ee0044","#dd0033","#cc0022","#bb0011","#aa0000","#990000","#880000","#770000","#660000"
+],
+     "Grayscale": [
+  "#000000","#030303","#060606","#090909","#0c0c0c","#0f0f0f","#121212","#151515","#181818","#1b1b1b",
+  "#1e1e1e","#212121","#242424","#272727","#2a2a2a","#2d2d2d","#303030","#333333","#363636","#393939",
+  "#3c3c3c","#3f3f3f","#424242","#454545","#484848","#4b4b4b","#4e4e4e","#515151","#545454","#575757",
+  "#5a5a5a","#5d5d5d","#606060","#636363","#666666","#696969","#6c6c6c","#6f6f6f","#727272","#757575",
+  "#787878","#7b7b7b","#7e7e7e","#818181","#848484","#878787","#8a8a8a","#8d8d8d","#909090","#939393",
+  "#969696","#999999","#9c9c9c","#9f9f9f","#a2a2a2","#a5a5a5","#a8a8a8","#ababab","#aeaeae","#b1b1b1",
+  "#b4b4b4","#b7b7b7","#bababa","#bdbdbd","#c0c0c0","#c3c3c3","#c6c6c6","#c9c9c9","#cccccc","#cfcfcf",
+  "#d2d2d2","#d5d5d5","#d8d8d8","#dbdbdb","#dedede","#e1e1e1","#e4e4e4","#e7e7e7","#eaeaea","#ededed",
+  "#f0f0f0","#f3f3f3","#f6f6f6","#f9f9f9","#fcfcfc","#ffffff","#fefefe","#fdfdfd","#fcfcfc","#fbfbfb",
+  "#fafafa","#f9f9f9","#f8f8f8","#f7f7f7","#f6f6f6","#f5f5f5","#f4f4f4","#f3f3f3","#f2f2f2","#f1f1f1"
+],
+
+"Autumn": [
+  "#7c2f00","#8b3e00","#9a4c00","#aa5b00","#b96900","#c97800","#d98700","#e99600","#fba500","#ffb400",
+  "#7d3001","#8c3f01","#9b4d01","#ab5c01","#ba6a01","#c97801","#da8701","#eb9601","#fca501","#ffb501",
+  "#7e3102","#8d4002","#9c4e02","#ac5d02","#bb6b02","#ca7902","#db8802","#ec9702","#fda602","#ffb602",
+  "#7f3203","#8e4103","#9d4f03","#ad5e03","#bc6c03","#cb7a03","#dc8903","#ed9803","#fea703","#ffb703",
+  "#803304","#8f4204","#9e5004","#ae5f04","#bd6d04","#cc7b04","#dd8a04","#ee9904","#ffa804","#ffb804",
+  "#813305","#904305","#9f5105","#af6005","#be6e05","#cd7c05","#de8b05","#ef9a05","#ffa905","#ffb905",
+  "#823406","#914406","#a05206","#b06106","#bf6f06","#ce7d06","#df8c06","#f09b06","#ffaa06","#ffba06",
+  "#833507","#924507","#a15307","#b06207","#c07007","#cf7e07","#e08d07","#f19c07","#ffab07","#ffbb07",
+  "#843608","#934608","#a25408","#b16308","#c07108","#d07f08","#e18e08","#f29d08","#ffac08","#ffbc08",
+  "#853709","#944709","#a35509","#b16409","#c07209","#d08009","#e18f09","#f29e09","#ffad09","#ffbd09",
+  "#86380a","#95480a","#a4560a","#b1650a","#c0730a","#d0810a","#e1900a","#f29f0a","#ffae0a","#ffbe0a",
+  "#87390b","#96490b","#a5570b","#b1660b","#c0740b","#d0820b","#e1910b","#f2a00b","#ffaf0b","#ffbf0b"
+],
+
+"Spring": [
+  "#00ff3b","#00e533","#00cc2b","#00b222","#00991a","#008011","#006609","#004d01","#003300","#001a00",
+  "#33ff5c","#33e549","#33cc37","#33b225","#33991a","#338011","#336609","#334d01","#333300","#331a00",
+  "#66ff7f","#66e56c","#66cc5a","#66b247","#669934","#668022","#666609","#664d01","#663300","#661a00",
+  "#99ff9f","#99e58f","#99cc7f","#99b26f","#99995f","#99804f","#99663f","#994d2f","#99331f","#991a0f",
+  "#ccffbf","#cce5af","#cccc9f","#ccb28f","#cc9980","#cc8050","#cc6640","#cc4d30","#cc3320","#cc1a10",
+  "#00ff50","#00e540","#00cc30","#00b220","#009910","#008000","#006610","#004d00","#003300","#001a00",
+  "#33ff73","#33e563","#33cc53","#33b243","#339933","#338023","#336613","#334d03","#333303","#331a03",
+  "#66ff96","#66e586","#66cc76","#66b266","#669956","#668046","#666636","#664d26","#663316","#661a06",
+  "#99ffb6","#99e5a6","#99cca6","#99b296","#999986","#998076","#996666","#994d56","#993346","#991a36",
+  "#ccffd6","#cce5c6","#ccccb6","#ccb2a6","#cc9986","#cc8066","#cc6646","#cc4d36","#cc3336","#cc1a26",
+  "#00ff66","#00e556","#00cc46","#00b236","#009926","#008016","#006606","#004d06","#003306","#001a06"
+],
+
+"Ocean": [
+  "#0044ff","#003ce5","#0033cc","#002ab2","#002299","#001980","#001066","#000b66","#00044d","#000033",
+  "#0055ff","#004de5","#0044cc","#003bb2","#003399","#002980","#002166","#001b4d","#001433","#000b1a",
+  "#0066ff","#005de5","#0054cc","#004ab2","#004299","#003780","#002f66","#002666","#001c4d","#001233",
+  "#0077ff","#006fe5","#0066cc","#005cb2","#005399","#004880","#003f66","#003666","#002c4d","#002233",
+  "#0088ff","#007fe5","#0076cc","#006cb2","#006399","#005880","#004f66","#004666","#003c4d","#003233",
+  "#0099ff","#008fe5","#0086cc","#007cb2","#007399","#006880","#005f66","#005666","#004c4d","#004233",
+  "#00aaff","#009fe5","#0096cc","#008cb2","#008399","#007880","#006f66","#006666","#005c4d","#005233",
+  "#00bbff","#00b0e5","#00a7cc","#009db2","#009499","#008980","#008066","#007566","#006c4d","#006233",
+  "#00ccff","#00c1e5","#00b8cc","#00aeb2","#00a599","#009a80","#009166","#008866","#007d4d","#007233",
+  "#00ddff","#00d2e5","#00c9cc","#00bfb2","#00b699","#00ab80","#00a166","#009866","#008d4d","#008233",
+  "#00eeff","#00e3e5","#00dacd","#00cfc2","#00c699","#00bb80","#00b166","#00a666","#009b4d","#009033"
+],
+     "Forest": [
+  "#0b3d0b","#0c440c","#0d4b0d","#0e520e","#0f590f","#106010","#116711","#126e12","#137513","#147c14","#158315",
+  "#168a16","#179116","#189818","#19a11a","#1aa91b","#1bb21c","#1cba1d","#1dc21f","#1edc20","#1fe421",
+  "#20eb22","#21f324","#22fa25","#23ff26","#24ff27","#25ff28","#26ff29","#27ff2a","#28ff2b","#29ff2c",
+  "#2aff2d","#2bff2e","#2cff2f","#2dff30","#2eff31","#2fff32","#30ff33","#31ff34","#32ff35","#33ff36",
+  "#34ff37","#35ff38","#36ff39","#37ff3a","#38ff3b","#39ff3c","#3aff3d","#3bff3e","#3cff3f","#3dff40",
+  "#3eff41","#3fff42","#40ff43","#41ff44","#42ff45","#43ff46","#44ff47","#45ff48","#46ff49","#47ff4a",
+  "#48ff4b","#49ff4c","#4aff4d","#4bff4e","#4cff4f","#4dff50","#4eff51","#4fff52","#50ff53","#51ff54",
+  "#52ff55","#53ff56","#54ff57","#55ff58","#56ff59","#57ff5a","#58ff5b","#59ff5c","#5aff5d","#5bff5e",
+  "#5cff5f","#5dff60","#5eff61","#5fff62","#60ff63","#61ff64","#62ff65","#63ff66","#64ff67","#65ff68",
+  "#66ff69","#67ff6a","#68ff6b","#69ff6c","#6aff6d","#6bff6e","#6cff6f","#6dff70","#6eff71","#6fff72"
+],
+
+"Desert": [
+  "#edc9af","#f0d3b8","#f3ddc1","#f6e6ca","#f9f0d3","#fef9dc","#fff0c5","#ffe7ae","#ffdf97","#ffd680",
+  "#edc1a0","#f0cbb9","#f3d5c2","#f6dfcb","#f9e9d4","#fef3dd","#fffac6","#ffe3af","#ffdb98","#ffd480",
+  "#edbfa1","#f0c9ba","#f3d3c3","#f6ddcc","#f9e7d5","#fef1de","#fff8c7","#ffe1b0","#ffd998","#ffd288",
+  "#edbea2","#f0c8bb","#f3d2c4","#f6dccd","#f9e6d6","#fef0df","#fff7c8","#ffe0b1","#ffd998","#ffd289",
+  "#edbda3","#f0c7bc","#f3d1c5","#f6dbcE","#f9e5d7","#fef0e0","#fff6c9","#ffdfb2","#ffd99a","#ffd38a",
+  "#edbc04","#f0c6bd","#f3d0c6","#f6dacF","#f9e4d8","#fef0e1","#fff6ca","#ffdeb3","#ffd99b","#ffd38b",
+  "#edbb05","#f0c5be","#f3cfc7","#f6d9d0","#f9e3d9","#fef1e2","#fff7cb","#ffdfb4","#ffd99c","#ffd38c",
+  "#edba06","#f0c4bf","#f3cec8","#f6d8d1","#f9e2da","#fef1e3","#fff7cc","#ffdfb5","#ffd99d","#ffd38d",
+  "#edb907","#f0c3c0","#f3cdc9","#f6d7d2","#f9e1db","#fef1e4","#fff7cd","#ffdfb6","#ffd99e","#ffd38e",
+  "#edb808","#f0c2c1","#f3cccA","#f6d6d3","#f9e0dc","#fef2e5","#fff7ce","#ffdfb7","#ffd99f","#ffd38f"
+],
+
+"Retro": [
+  "#ff6f61","#ff7f50","#ff8c42","#ff9933","#ffaa22","#ffb511","#ffc400","#ffd100","#ffe000","#ffee00",
+  "#ff704c","#ff8040","#ff8d44","#ff9a33","#ffab23","#ffb622","#ffc511","#ffd211","#ffe100","#ffee11",
+  "#ff7150","#ff8151","#ff8e45","#ff9b34","#ffac24","#ffb723","#ffc622","#ffd322","#ffe122","#ffee22",
+  "#ff7251","#ff8252","#ff8f46","#ff9c35","#ffad25","#ffb824","#ffc623","#ffd323","#ffe123","#ffee23",
+  "#ff7352","#ff8353","#ff9047","#ff9d36","#ffae26","#ffb925","#ffc624","#ffd324","#ffe124","#ffee24",
+  "#ff7453","#ff8554","#ff9148","#ff9e37","#ffaf27","#ffba26","#ffc725","#ffd325","#ffe125","#ffee25",
+  "#ff7554","#ff8655","#ff9249","#ff9f38","#ffb028","#ffbb27","#ffc826","#ffd426","#ffe126","#ffee26",
+  "#ff7655","#ff8756","#ff934a","#ffa039","#ffb129","#ffbc28","#ffc927","#ffd527","#ffe127","#ffee27",
+  "#ff7756","#ff8857","#ff944b","#ffa13a","#ffb22a","#ffbd29","#ffc92A","#ffd626","#ffe128","#ffee28",
+  "#ff7857","#ff8958","#ff954c","#ffa23b","#ffb32b","#ffbe2a","#ffc92B","#ffd727","#ffe129","#ffee29",
+  "#ff7958","#ff8a59","#ff964d","#ffa33c","#ffb42c","#ffbf2b","#ffc92C","#ffd827","#ffe12a","#ffee2a"
+],
+
+"Cyberpunk": [
+  "#ff00aa","#ff00cc","#ff00ee","#ff11ff","#ff22ff","#ff33ff","#ff44ff","#ff55ff","#ff66ff","#ff77ff",
+  "#ee00aa","#ee00cc","#ee00ee","#ee11ff","#ee22ff","#ee33ff","#ee44ff","#ee55ff","#ee66ff","#ee77ff",
+  "#dd00aa","#dd00cc","#dd00ee","#dd11ff","#dd22ff","#dd33ff","#dd44ff","#dd55ff","#dd66ff","#dd77ff",
+  "#cc00aa","#cc00cc","#cc00ee","#cc11ff","#cc22ff","#cc33ff","#cc44ff","#cc55ff","#cc66ff","#cc77ff",
+  "#bb00aa","#bb00cc","#bb00ee","#bb11ff","#bb22ff","#bb33ff","#bb44ff","#bb55ff","#bb66ff","#bb77ff",
+  "#aa00aa","#aa00cc","#aa00ee","#aa11ff","#aa22ff","#aa33ff","#aa44ff","#aa55ff","#aa66ff","#aa77ff",
+  "#9900aa","#9900cc","#9900ee","#9911ff","#9922ff","#9933ff","#9944ff","#9955ff","#9966ff","#9977ff",
+  "#8800aa","#8800cc","#8800ee","#8811ff","#8822ff","#8833ff","#8844ff","#8855ff","#8866ff","#8877ff",
+  "#7700aa","#7700cc","#7700ee","#7711ff","#7722ff","#7733ff","#7744ff","#7755ff","#7766ff","#7777ff",
+  "#6600aa","#6600cc","#6600ee","#6611ff","#6622ff","#6633ff","#6644ff","#6655ff","#6666ff","#6677ff"
+],
+"Neutrals": [
+  "#f5f5f5","#eeeeee","#e0e0e0","#d6d6d6","#cccccc","#c0c0c0","#b6b6b6","#acacac","#a0a0a0","#969696",
+  "#8c8c8c","#828282","#787878","#6e6e6e","#646464","#5a5a5a","#505050","#464646","#3c3c3c","#323232",
+  "#282828","#1e1e1e","#141414","#0a0a0a","#000000","#f6f6f6","#efefef","#e1e1e1","#d7d7d7","#cdcdcd",
+  "#c1c1c1","#b7b7b7","#adadad","#a1a1a1","#979797","#8d8d8d","#838383","#797979","#6f6f6f","#656565",
+  "#5b5b5b","#515151","#474747","#3d3d3d","#333333","#292929","#1f1f1f","#151515","#0b0b0b","#010101",
+  "#f7f7f7","#f0f0f0","#e2e2e2","#d8d8d8","#cecece","#c2c2c2","#b8b8b8","#aeaeae","#a2a2a2","#989898",
+  "#8e8e8e","#848484","#7a7a7a","#707070","#666666","#5c5c5c","#525252","#484848","#3e3e3e","#343434",
+  "#2a2a2a","#202020","#161616","#0c0c0c","#020202","#f8f8f8","#f1f1f1","#e3e3e3","#d9d9d9","#cfcfcf",
+  "#c3c3c3","#b9b9b9","#afafaf","#a3a3a3","#999999","#8f8f8f","#858585","#7b7b7b","#717171","#676767",
+  "#5d5d5d","#535353","#494949","#3f3f3f","#353535","#2b2b2b","#212121","#171717","#0d0d0d","#030303"
+],
+
+"Tropical": [
+  "#ffde00","#ffea00","#fff500","#fff000","#ffee00","#ffe900","#ffe400","#ffe000","#ffdb00","#ffd600",
+  "#ffd100","#ffcc00","#ffc700","#ffc200","#ffbd00","#ffb800","#ffb300","#ffae00","#ffa900","#ffa400",
+  "#ff9f00","#ff9a00","#ff9500","#ff9000","#ff8b00","#ff8600","#ff8100","#ff7c00","#ff7700","#ff7200",
+  "#ff6d00","#ff6800","#ff6300","#ff5e00","#ff5900","#ff5400","#ff4f00","#ff4a00","#ff4500","#ff4000",
+  "#ff3b00","#ff3600","#ff3100","#ff2c00","#ff2700","#ff2200","#ff1d00","#ff1800","#ff1300","#ff0e00",
+  "#ff0900","#ff0400","#ff0000","#fe0000","#fd0000","#fc0000","#fb0000","#fa0000","#f90000","#f80000",
+  "#f70000","#f60000","#f50000","#f40000","#f30000","#f20000","#f10000","#f00000","#ef0000","#ee0000",
+  "#ed0000","#ec0000","#eb0000","#ea0000","#e90000","#e80000","#e70000","#e60000","#e50000","#e40000",
+  "#e30000","#e20000","#e10000","#e00000","#df0000","#de0000","#dd0000","#dc0000","#db0000","#da0000",
+  "#d90000","#d80000","#d70000","#d60000","#d50000","#d40000","#d30000","#d20000","#d10000","#d00000",
+  "#cf0000","#ce0000","#cd0000","#cc0000","#cb0000","#ca0000","#c90000","#c80000","#c70000","#c60000"
+],
+
+"Sunset": [
+  "#ff4500","#ff4f00","#ff5900","#ff6300","#ff6d00","#ff7700","#ff8100","#ff8b00","#ff9500","#ff9f00",
+  "#ffa900","#ffb300","#ffbd00","#ffc700","#ffd100","#ffdb00","#ffe500","#ffef00","#fff900","#ffff00",
+  "#ff4600","#ff5000","#ff5a00","#ff6400","#ff6e00","#ff7800","#ff8200","#ff8c00","#ff9600","#ffa000",
+  "#ffaa00","#ffb400","#ffbe00","#ffc800","#ffd200","#ffdc00","#ffe600","#fff000","#fffa00","#ffff00",
+  "#ff4700","#ff5100","#ff5b00","#ff6500","#ff6f00","#ff7900","#ff8300","#ff8d00","#ff9700","#ffa100",
+  "#ffab00","#ffb500","#ffbf00","#ffc900","#ffd300","#ffdd00","#ffe700","#fff100","#fffb00","#ffff00",
+  "#ff4800","#ff5200","#ff5c00","#ff6600","#ff7000","#ff7a00","#ff8400","#ff8e00","#ff9800","#ffa200",
+  "#ffac00","#ffb600","#ffc000","#ffca00","#ffd400","#ffde00","#ffe800","#fff200","#fffc00","#ffff00",
+  "#ff4900","#ff5300","#ff5d00","#ff6700","#ff7100","#ff7b00","#ff8500","#ff8f00","#ff9900","#ffa300",
+  "#ffad00","#ffb700","#ffc100","#ffcb00","#ffd500","#ffdf00","#ffe900","#fff300","#fffd00","#ffff00"
+],
+
+"Vintage": [
+  "#d9b382","#e0bf8d","#e6c998","#edcf9f","#f3d9aa","#f9e1b5","#fef0c0","#fff6c8","#fffad0","#ffffd8",
+  "#dcb27f","#e2bf8a","#e9c994","#efcf9b","#f5d9a6","#fbe1b1","#fff0bb","#fff6c3","#fffadb","#ffffe0",
+  "#deb480","#e4c08b","#ebc995","#f1cf9c","#f7d9a7","#fde1b2","#fff0bc","#fff6c4","#fffadf","#ffffe2",
+  "#e0b680","#e6c18b","#edc995","#f3cf9c","#f9d9a7","#fef1b2","#fff1bc","#fff7c4","#fffadf","#ffffe4",
+  "#e2b780","#e8c28b","#efc996","#f5cf9d","#fbd9a8","#fff1b3","#fff1bd","#fff7c5","#fffae0","#ffffe6",
+  "#e4b880","#eac38b","#f1c996","#f7cf9d","#fdd9a8","#fff2b3","#fff2bd","#fff8c5","#fffbe0","#ffffe8",
+  "#e6b980","#ecc48b","#f3c996","#f9cf9d","#fed9a8","#fff2b4","#fff3bd","#fff8c6","#fffbe0","#ffffea",
+  "#e8ba80","#edc58b","#f4c996","#f9cf9e","#fed9a9","#fff3b4","#fff3be","#fff8c7","#fffbe1","#ffffec",
+  "#eab980","#efc68b","#f5c997","#f9cf9f","#fed9aa","#fff3b5","#fff4be","#fff9c7","#fffbe2","#ffffee",
+  "#ecbb80","#f0c68c","#f6c998","#f9d09f","#fed9ab","#fff4b5","#fff4bf","#fff9c8","#fffbe3","#fffff0"
+],
+
+"Pop": [
+  "#ff007f","#ff3399","#ff66b2","#ff99cc","#ffccde","#ffb3e6","#ff80d4","#ff4dbf","#ff1aa6","#ff0099",
+  "#ff1188","#ff3399","#ff5588","#ff7788","#ff9977","#ffbb66","#ffdd55","#ffee44","#ffff33","#ffcc22",
+  "#ffbb11","#ffaa00","#ff9900","#ff8800","#ff7700","#ff6600","#ff5500","#ff4400","#ff3300","#ff2200",
+  "#ff1100","#ff0000","#ee0011","#dd0022","#cc0033","#bb0044","#aa0055","#990066","#880077","#770088",
+  "#660099","#5500aa","#4400bb","#3300cc","#2200dd","#1100ee","#0000ff","#1111ff","#2222ff","#3333ff",
+  "#4444ff","#5555ff","#6666ff","#7777ff","#8888ff","#9999ff","#aaaaff","#bbbbff","#ccccff","#ddddff",
+  "#eeeeff","#ffffee","#ffeeee","#ffdddd","#ffcccc","#ffbbbb","#ffaaaa","#ff9999","#ff8888","#ff7777",
+  "#ff6666","#ff5555","#ff4444","#ff3333","#ff2222","#ff1111","#ff0000","#ee0000","#dd0000","#cc0000",
+  "#bb0000","#aa0000","#990000","#880000","#770000","#660000","#550000","#440000","#330000","#220000",
+  "#110000","#000000","#111111","#222222","#333333","#444444","#555555","#666666","#777777","#888888",
+  "#999999","#aaaaaa","#bbbbbb","#cccccc","#dddddd","#eeeeee","#ffffff","#fefefe","#fdfdfd","#fcfcfc"
+],
+
+"SciFi": [
+  "#00ffcc","#00e6b8","#00ccaa","#00b299","#009988","#008077","#006666","#004d55","#003344","#001a22",
+  "#00ffdd","#00e6cc","#00ccbb","#00b2aa","#009999","#008888","#006666","#004d55","#003344","#001a22",
+  "#00ffee","#00e6dd","#00cccc","#00b2bb","#0099aa","#008899","#006666","#004d55","#003344","#001a22",
+  "#00ffff","#00e6ee","#00cccc","#00b2cc","#0099bb","#0088aa","#006666","#004d55","#003344","#001a22",
+  "#00ffef","#00e6de","#00cccd","#00b2bc","#0099ab","#00889a","#006666","#004d55","#003344","#001a22",
+  "#00ffd0","#00e6bf","#00ccae","#00b29d","#00998c","#00887b","#006666","#004d55","#003344","#001a22",
+  "#00ffb0","#00e69f","#00cc8e","#00b27d","#00996c","#00885b","#006666","#004d55","#003344","#001a22",
+  "#00ff90","#00e67f","#00cc6e","#00b25d","#00994c","#00883b","#006666","#004d55","#003344","#001a22",
+  "#00ff70","#00e65f","#00cc4e","#00b23d","#00992c","#00881b","#006666","#004d55","#003344","#001a22",
+  "#00ff50","#00e63f","#00cc2e","#00b21d","#00991c","#00880b","#006666","#004d55","#003344","#001a22"
+],
+    };
+
+    /************************************************************************
+     * Utility: HSL <-> RGB conversions, hex helpers
+     ************************************************************************/
+    function hexToRgb(hex) {
+      if (hex[0]==="#") hex = hex.slice(1);
+      const bigint = parseInt(hex,16);
+      return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+    }
+    function rgbToHex(r,g,b) {
+      return "#" + [r,g,b].map(x => x.toString(16).padStart(2,"0")).join("");
+    }
+    function rgbToHsl(r,g,b){
+      r/=255; g/=255; b/=255;
+      const max=Math.max(r,g,b), min=Math.min(r,g,b);
+      let h=0,s=0,l=(max+min)/2;
+      if(max!==min){
+        const d=max-min;
+        s = l>0.5 ? d/(2-max-min) : d/(max+min);
+        switch(max){
+          case r: h = (g-b)/d + (g<b?6:0); break;
+          case g: h = (b-r)/d + 2; break;
+          case b: h = (r-g)/d + 4; break;
+        }
+        h /= 6;
+      }
+      return {h,s,l};
+    }
+    function hslToRgb(h,s,l){
+      let r,g,b;
+      if (s===0) { r=g=b=l; }
+      else {
+        const hue2rgb = (p,q,t) => {
+          if (t<0) t+=1;
+          if (t>1) t-=1;
+          if (t<1/6) return p+(q-p)*6*t;
+          if (t<1/2) return q;
+          if (t<2/3) return p+(q-p)*(2/3 - t)*6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l*s;
+        const p = 2*l - q;
+        r = hue2rgb(p,q,h+1/3);
+        g = hue2rgb(p,q,h);
+        b = hue2rgb(p,q,h-1/3);
+      }
+      return { r: Math.round(r*255), g: Math.round(g*255), b: Math.round(b*255) };
+    }
+
+    /************************************************************************
+     * Red-Black Tree for efficient color matching
+     ************************************************************************/
+    class RBNode {
+      constructor(color, data = null) {
+        this.color = color; // [r, g, b]
+        this.data = data;
+        this.key = this.calculateKey(color);
+        this.red = true;
+        this.left = null;
+        this.right = null;
+        this.parent = null;
+      }
+      
+      // Calculate a sortable key based on color values (weighted for perceptual distance)
+      calculateKey(rgb) {
+        // Use weighted RGB for better perceptual sorting
+        return rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114;
+      }
+    }
+
+    class RedBlackTree {
+      constructor() {
+        this.NIL = new RBNode([0, 0, 0]);
+        this.NIL.red = false;
+        this.NIL.left = this.NIL.right = this.NIL.parent = this.NIL;
+        this.root = this.NIL;
+      }
+
+      insert(color, data = null) {
+        const node = new RBNode(color, data);
+        node.left = node.right = node.parent = this.NIL;
+        
+        let parent = this.NIL;
+        let current = this.root;
+        
+        while (current !== this.NIL) {
+          parent = current;
+          if (node.key < current.key) {
+            current = current.left;
+          } else {
+            current = current.right;
+          }
+        }
+        
+        node.parent = parent;
+        if (parent === this.NIL) {
+          this.root = node;
+        } else if (node.key < parent.key) {
+          parent.left = node;
+        } else {
+          parent.right = node;
+        }
+        
+        this.fixInsert(node);
+      }
+
+      fixInsert(node) {
+        while (node.parent.red) {
+          if (node.parent === node.parent.parent.left) {
+            const uncle = node.parent.parent.right;
+            if (uncle.red) {
+              node.parent.red = false;
+              uncle.red = false;
+              node.parent.parent.red = true;
+              node = node.parent.parent;
+            } else {
+              if (node === node.parent.right) {
+                node = node.parent;
+                this.leftRotate(node);
+              }
+              node.parent.red = false;
+              node.parent.parent.red = true;
+              this.rightRotate(node.parent.parent);
+            }
+          } else {
+            const uncle = node.parent.parent.left;
+            if (uncle.red) {
+              node.parent.red = false;
+              uncle.red = false;
+              node.parent.parent.red = true;
+              node = node.parent.parent;
+            } else {
+              if (node === node.parent.left) {
+                node = node.parent;
+                this.rightRotate(node);
+              }
+              node.parent.red = false;
+              node.parent.parent.red = true;
+              this.leftRotate(node.parent.parent);
+            }
+          }
+        }
+        this.root.red = false;
+      }
+
+      leftRotate(x) {
+        const y = x.right;
+        x.right = y.left;
+        if (y.left !== this.NIL) {
+          y.left.parent = x;
+        }
+        y.parent = x.parent;
+        if (x.parent === this.NIL) {
+          this.root = y;
+        } else if (x === x.parent.left) {
+          x.parent.left = y;
+        } else {
+          x.parent.right = y;
+        }
+        y.left = x;
+        x.parent = y;
+      }
+
+      rightRotate(x) {
+        const y = x.left;
+        x.left = y.right;
+        if (y.right !== this.NIL) {
+          y.right.parent = x;
+        }
+        y.parent = x.parent;
+        if (x.parent === this.NIL) {
+          this.root = y;
+        } else if (x === x.parent.right) {
+          x.parent.right = y;
+        } else {
+          x.parent.left = y;
+        }
+        y.right = x;
+        x.parent = y;
+      }
+
+      // Find closest color using Delta E color distance
+      findClosest(targetColor) {
+        let bestNode = null;
+        let bestDistance = Infinity;
+        
+        const traverse = (node) => {
+          if (node === this.NIL) return;
+          
+          const distance = this.calculateColorDistance(targetColor, node.color);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestNode = node;
+          }
+          
+          traverse(node.left);
+          traverse(node.right);
+        };
+        
+        traverse(this.root);
+        return bestNode;
+      }
+
+      // Calculate perceptual color distance (Delta E approximation)
+      calculateColorDistance(color1, color2) {
+        const [r1, g1, b1] = color1;
+        const [r2, g2, b2] = color2;
+        
+        // Convert to LAB color space approximation for better perceptual distance
+        const rMean = (r1 + r2) / 2;
+        const deltaR = r1 - r2;
+        const deltaG = g1 - g2;
+        const deltaB = b1 - b2;
+        
+        const weightR = 2 + rMean / 256;
+        const weightG = 4;
+        const weightB = 2 + (255 - rMean) / 256;
+        
+        return Math.sqrt(
+          weightR * deltaR * deltaR +
+          weightG * deltaG * deltaG +
+          weightB * deltaB * deltaB
+        );
+      }
+
+      // Get all colors in tree (for debugging)
+      getAllColors() {
+        const colors = [];
+        const traverse = (node) => {
+          if (node === this.NIL) return;
+          colors.push(node.color);
+          traverse(node.left);
+          traverse(node.right);
+        };
+        traverse(this.root);
+        return colors;
+      }
+    }
+
+    /************************************************************************
+     * Color matching system using Red-Black tree
+     ************************************************************************/
+    function createColorMatchingTree(paletteColors) {
+      const tree = new RedBlackTree();
+      paletteColors.forEach((hexColor, index) => {
+        const rgb = hexToRgb(hexColor);
+        tree.insert([rgb.r, rgb.g, rgb.b], { hex: hexColor, index });
+      });
+      return tree;
+    }
+
+    function replaceImageColorsWithPalette(paletteColors) {
+      if (!extractedPalette || extractedPalette.length === 0) {
+        alert("Please upload an image first to extract colors");
+        return;
+      }
+      
+      if (!paletteColors || paletteColors.length === 0) {
+        alert("Please select a palette to match colors against");
+        return;
+      }
+      
+      console.log(`Replacing ${extractedPalette.length} image colors with closest matches from ${paletteColors.length} palette colors...`);
+      
+      // Create Red-Black tree with palette colors for efficient matching
+      const colorTree = createColorMatchingTree(paletteColors);
+      
+      // Find closest match for each extracted color
+      const newExtractedPalette = extractedPalette.map((imageColor, index) => {
+        const closestNode = colorTree.findClosest(imageColor);
+        if (closestNode) {
+          console.log(`Color ${index}: [${imageColor.join(',')}] -> [${closestNode.color.join(',')}]`);
+          return closestNode.color;
+        }
+        return imageColor; // fallback to original if no match found
+      });
+      
+      // Update the extracted palette with matched colors
+      extractedPalette = newExtractedPalette;
+      
+      // Save to history
+      saveToHistory();
+      
+      // Re-render the extracted palette UI
+      renderExtractedPalette();
+      
+      // Recolor the image with new palette
+      if (doRecolor) recolorImage();
+      
+      alert(`✅ Successfully replaced image colors with closest palette matches!`);
+    }
+
+    /************************************************************************
+     * Expand a base palette (anchors) into targetCount tonal variations.
+     * Strategy:
+     *  - For each anchor color produce several variations by shifting
+     *    lightness (L) and gently shifting saturation (S) and small hue
+     *    rotations, producing a wider tonal family.
+     ************************************************************************/
+    function expandPaletteAnchors(anchors, targetCount) {
+      if (!anchors || anchors.length===0) return [];
+      const expanded = [];
+      const perAnchor = Math.ceil(targetCount / anchors.length);
+      // variation patterns: e.g. lightness offsets, saturation tweaks, hue jitter
+      // produce perAnchor variations centered around original
+      for (const hex of anchors) {
+        const {r,g,b} = hexToRgb(hex);
+        const {h,s,l} = rgbToHsl(r,g,b);
+        for (let i=0;i<perAnchor;i++){
+          // index centered around 0
+          const mid = (perAnchor-1)/2;
+          const t = (i - mid) / (mid||1); // range approx -1..1
+          // lightness shift up to ±30%
+          const lShift = l + (t * 0.30);
+          // saturation nudged gently
+          const sShift = Math.min(1, Math.max(0, s + (t * 0.15)));
+          // hue small rotation proportional to t (wrap around)
+          const hueShift = (h + t * 0.03 + 1) % 1;
+          const rgbVar = hslToRgb((hueShift+1)%1, sShift, Math.min(1, Math.max(0, lShift)));
+          expanded.push(rgbToHex(rgbVar.r, rgbVar.g, rgbVar.b));
+          if (expanded.length >= targetCount) break;
+        }
+        if (expanded.length >= targetCount) break;
+      }
+      // ensure unique-ish and exactly targetCount (trim/pad)
+      const uniq = Array.from(new Set(expanded));
+      // If too few because anchors exhausted, fill by lightening/darkening last anchor
+      let idx = 0;
+      while (uniq.length < targetCount) {
+        const base = anchors[idx % anchors.length];
+        const {r,g,b} = hexToRgb(base);
+        const {h,s,l} = rgbToHsl(r,g,b);
+        const factor = 0.05 + ((idx%10)/10)*0.15;
+        const l2 = Math.min(1, Math.max(0, l + (idx%2===0 ? factor : -factor)));
+        const rgbVar = hslToRgb(h, s, l2);
+        uniq.push(rgbToHex(rgbVar.r, rgbVar.g, rgbVar.b));
+        idx++;
+      }
+      return uniq.slice(0, targetCount);
+    }
+
+    /************************************************************************
+     * Palette data structure: expand all BASE_PALETTES at startup.
+     ************************************************************************/
+    const PALETTES = {};
+    const TARGET_PER_PALETTE = 75;
+    
+    // Load custom palettes from localStorage
+    function loadCustomPalettes() {
+      const saved = localStorage.getItem('customPalettes');
+      return saved ? JSON.parse(saved) : {};
+    }
+    
+    // Save custom palettes to localStorage
+    function saveCustomPalettes() {
+      const customPalettes = {};
+      for (const name in PALETTES) {
+        if (!BASE_PALETTES[name]) {
+          customPalettes[name] = PALETTES[name];
+        }
+      }
+      localStorage.setItem('customPalettes', JSON.stringify(customPalettes));
+    }
+    
+    // Load/save confirmation preferences
+    function loadConfirmSwapsPref() {
+      const saved = localStorage.getItem('confirmSwaps');
+      return saved === null ? true : saved === 'true'; // Default to true
+    }
+    
+    function saveConfirmSwapsPref(value) {
+      localStorage.setItem('confirmSwaps', value.toString());
+    }
+    
+    // Initialize palettes
+    function initializePalettes() {
+      // First load base palettes
+      for (const name in BASE_PALETTES) {
+        PALETTES[name] = expandPaletteAnchors(BASE_PALETTES[name], TARGET_PER_PALETTE);
+      }
+      
+      // Then load custom palettes
+      const customPalettes = loadCustomPalettes();
+      for (const name in customPalettes) {
+        PALETTES[name] = customPalettes[name];
+      }
+      
+      updatePaletteCount();
+    }
+    
+    function updatePaletteCount() {
+      document.getElementById('paletteCount').textContent = Object.keys(PALETTES).length;
+    }
+    
+    initializePalettes();
+
+    // Initialize confirmation preference
+    document.getElementById('confirmSwaps').checked = loadConfirmSwapsPref();
+
+    /************************************************************************
+     * UI + Image processing
+     ************************************************************************/
     const fileInput = document.getElementById("fileInput");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const colorList = document.getElementById("colorList");
+    const tabButtons = document.getElementById("tabButtons");
+    const tabContent = document.getElementById("tabContent");
+    const tabLabel = document.getElementById("tabLabel");
+    const toggleRecolor = document.getElementById("toggleRecolor");
+    
+    // Color replacement system
+    let selectedExtractedColorIndex = -1; // Track which extracted color is selected for replacement
+    let isReplacementMode = false; // Track if we're in replacement mode
+    
+    // Canvas size tracking for zoom fix
+    let originalCanvasWidth = 0;
+    let originalCanvasHeight = 0;
+    let originalDisplayWidth = 0;
+    let originalDisplayHeight = 0;
+    
+    // Zoom and pan system
+    let zoomLevel = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+    const canvasViewport = document.getElementById('canvasViewport');
+    const MIN_ZOOM = 0.1;
+    const MAX_ZOOM = 10;
+    
+    // Image adjustment variables
+    let brightness = 0;
+    let saturation = 0;
+    let colorPop = 0;
+    let shadow = 0;
+    let adjustedImageData = null;
+    
+    // Custom palette controls
+    const customPaletteName = document.getElementById("customPaletteName");
+    const saveCurrentPalette = document.getElementById("saveCurrentPalette");
+    const createFromExtracted = document.getElementById("createFromExtracted");
+    const createEmpty = document.getElementById("createEmpty");
+    const importPalette = document.getElementById("importPalette");
+    const exportPalettes = document.getElementById("exportPalettes");
+    const saveImagePalette = document.getElementById("saveImagePalette");
+    const replaceWithPalette = document.getElementById("replaceWithPalette");
+    const undoColors = document.getElementById("undoColors");
+    const redoColors = document.getElementById("redoColors");
+    const imageControls = document.getElementById("imageControls");
 
-    let palette = [];
-    let clusters = [];
+    let extractedPalette = [];   // array of [r,g,b] for 75 extracted clusters
+    let clusters = null;         // cluster assignment per pixel
+    let doRecolor = true;
+    let currentTab = null;
+    let currentImageName = null;  // Store the current image filename
+    
+    // Undo/Redo system
+    let paletteHistory = [];     // Store palette states
+    let historyIndex = -1;       // Current position in history
+    const MAX_HISTORY = 50;      // Maximum history entries
 
-    fileInput.addEventListener("change", handleFile);
+    toggleRecolor.addEventListener("click", () => {
+      doRecolor = !doRecolor;
+      toggleRecolor.textContent = `Toggle Recolor: ${doRecolor ? "ON" : "OFF"}`;
+      if (doRecolor) recolorImage();
+      else drawOriginalImage();
+    });
+    
+    // Custom palette event listeners
+    saveCurrentPalette.addEventListener("click", () => {
+      const name = customPaletteName.value.trim();
+      if (!name) {
+        alert("Please enter a palette name");
+        return;
+      }
+      if (PALETTES[name] && !confirm(`Palette "${name}" already exists. Overwrite?`)) {
+        return;
+      }
+      
+      // Save current palette from the active tab content
+      if (currentTab && PALETTES[currentTab]) {
+        PALETTES[name] = [...PALETTES[currentTab]];
+        saveCustomPalettes();
+        customPaletteName.value = "";
+        renderTabs();
+        updatePaletteCount();
+        openTab(name);
+      }
+    });
+    
+    createFromExtracted.addEventListener("click", () => {
+      const name = customPaletteName.value.trim();
+      if (!name) {
+        alert("Please enter a palette name");
+        return;
+      }
+      if (PALETTES[name] && !confirm(`Palette "${name}" already exists. Overwrite?`)) {
+        return;
+      }
+      
+      if (!extractedPalette || extractedPalette.length === 0) {
+        alert("Please upload an image first to extract colors");
+        return;
+      }
+      
+      // Convert extracted palette to hex strings
+      const hexPalette = extractedPalette.map(color => rgbToHex(color[0], color[1], color[2]));
+      PALETTES[name] = hexPalette;
+      saveCustomPalettes();
+      customPaletteName.value = "";
+      renderTabs();
+      updatePaletteCount();
+      openTab(name);
+    });
+    
+    createEmpty.addEventListener("click", () => {
+      const name = customPaletteName.value.trim();
+      if (!name) {
+        alert("Please enter a palette name");
+        return;
+      }
+      if (PALETTES[name] && !confirm(`Palette "${name}" already exists. Overwrite?`)) {
+        return;
+      }
+      
+      // Create empty palette with 50 white colors
+      const emptyPalette = new Array(TARGET_PER_PALETTE).fill("#ffffff");
+      PALETTES[name] = emptyPalette;
+      saveCustomPalettes();
+      customPaletteName.value = "";
+      renderTabs();
+      updatePaletteCount();
+      openTab(name);
+    });
+    
+    importPalette.addEventListener("click", () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const imported = JSON.parse(e.target.result);
+            let importCount = 0;
+            
+            for (const name in imported) {
+              if (!PALETTES[name] || confirm(`Palette "${name}" already exists. Overwrite?`)) {
+                PALETTES[name] = imported[name];
+                importCount++;
+              }
+            }
+            
+            if (importCount > 0) {
+              saveCustomPalettes();
+              renderTabs();
+              updatePaletteCount();
+              alert(`Imported ${importCount} palette(s)`);
+            }
+          } catch (err) {
+            alert("Invalid JSON file");
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    });
+    
+    exportPalettes.addEventListener("click", () => {
+      const customPalettes = {};
+      for (const name in PALETTES) {
+        if (!BASE_PALETTES[name]) {
+          customPalettes[name] = PALETTES[name];
+        }
+      }
+      
+      const blob = new Blob([JSON.stringify(customPalettes, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'custom-palettes.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
 
-    function handleFile(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+    saveImagePalette.addEventListener("click", () => {
+      if (!extractedPalette || extractedPalette.length === 0) {
+        alert("Please upload an image first to extract colors");
+        return;
+      }
+      
+      // Generate a default name based on the image filename or timestamp
+      let defaultName = currentImageName ? 
+        `${currentImageName.replace(/\.[^/.]+$/, "")}_palette` : 
+        `image_palette_${new Date().toLocaleDateString().replace(/\//g, '_')}`;
+      
+      const name = prompt(`Enter a name for this image palette:`, defaultName);
+      if (!name || !name.trim()) return;
+      
+      const finalName = name.trim();
+      if (PALETTES[finalName] && !confirm(`Palette "${finalName}" already exists. Overwrite?`)) {
+        return;
+      }
+      
+      // Convert extracted palette to hex strings
+      const hexPalette = extractedPalette.map(color => rgbToHex(color[0], color[1], color[2]));
+      PALETTES[finalName] = hexPalette;
+      saveCustomPalettes();
+      renderTabs();
+      updatePaletteCount();
+      openTab(finalName);
+      
+      // Show success message
+      alert(`✅ Saved "${finalName}" with ${hexPalette.length} colors!`);
+    });
 
+    replaceWithPalette.addEventListener("click", () => {
+      if (!currentTab || !PALETTES[currentTab]) {
+        alert("Please select a palette first by clicking on a palette tab");
+        return;
+      }
+      
+      if (!extractedPalette || extractedPalette.length === 0) {
+        alert("Please upload an image first to extract colors");
+        return;
+      }
+      
+      const paletteColors = PALETTES[currentTab];
+      if (paletteColors.length === 0) {
+        alert("The selected palette is empty");
+        return;
+      }
+      
+      // Check user preference for confirmation
+      const shouldConfirm = document.getElementById('confirmSwaps').checked;
+      let confirmed = true;
+      
+      if (shouldConfirm) {
+        confirmed = confirm(
+          `Replace ${extractedPalette.length} image colors with closest matches from "${currentTab}" palette (${paletteColors.length} colors)?`
+        );
+      }
+      
+      if (confirmed) {
+        replaceImageColorsWithPalette(paletteColors);
+      }
+    });
+
+    undoColors.addEventListener("click", () => {
+      undo(10);
+    });
+
+    redoColors.addEventListener("click", () => {
+      redo(10);
+    });
+
+    // Handle confirmation preference checkbox
+    const confirmSwapsCheckbox = document.getElementById('confirmSwaps');
+    confirmSwapsCheckbox.addEventListener("change", () => {
+      saveConfirmSwapsPref(confirmSwapsCheckbox.checked);
+    });
+
+    let originalImageData = null;
+    function drawOriginalImage() {
+      if (originalImageData) ctx.putImageData(originalImageData, 0, 0);
+    }
+
+    fileInput.addEventListener("change", e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      
+      // Store the filename for palette naming
+      currentImageName = f.name;
+      
       const img = new Image();
       img.onload = () => {
+        // Calculate display size to fit within the container
+        const container = document.querySelector('.canvas-container');
+        const containerWidth = container.clientWidth - 20; // Some padding
+        const containerHeight = container.clientHeight - 20;
+        
+        let displayWidth = img.width;
+        let displayHeight = img.height;
+        
+        // Scale down if too large for container
+        if (displayWidth > containerWidth || displayHeight > containerHeight) {
+          const scale = Math.min(containerWidth / displayWidth, containerHeight / displayHeight);
+          displayWidth = displayWidth * scale;
+          displayHeight = displayHeight * scale;
+        }
+        
+        // Set canvas actual size to original image size for processing
         canvas.width = img.width;
         canvas.height = img.height;
+        
+        // Store original dimensions for zoom fix
+        originalCanvasWidth = img.width;
+        originalCanvasHeight = img.height;
+        originalDisplayWidth = displayWidth;
+        originalDisplayHeight = displayHeight;
+        
+        // Set canvas display size to fit in container
+        canvas.style.width = displayWidth + 'px';
+        canvas.style.height = displayHeight + 'px';
+        
+        // Reset zoom and pan when new image loads
+        resetZoomAndPan();
+        
+        // Reset image adjustments when new image loads
+        resetImageAdjustments();
+        
         ctx.drawImage(img, 0, 0);
-
-        const imageData = ctx.getImageData(0, 0, img.width, img.height);
-        palette = quantize(imageData.data, 12); // 12 groups of colors
-        clusters = assignClusters(imageData.data, palette);
-
-        renderColors();
-        recolorImage();
+        originalImageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+        
+        // Clear any existing highlights
+        clearHighlight();
+        
+        // extract diverse 75 colors
+        extractedPalette = extractDiverseColors(originalImageData.data, TARGET_PER_PALETTE);
+        clusters = assignClusters(originalImageData.data, extractedPalette);
+        
+        // Initialize history with the extracted palette
+        initializeHistory();
+        
+        renderExtractedPalette();
+        if (doRecolor) recolorImage();
+        
+        // Update overlay position after image is loaded
+        setTimeout(() => {
+          updateOverlayPosition();
+        }, 100);
+        
+        // Show the save image palette button
+        imageControls.style.display = "block";
       };
-      img.src = URL.createObjectURL(file);
-    }
+      img.src = URL.createObjectURL(f);
+    });
 
-    // K-means-like quantization
-    function quantize(data, k) {
-      let colors = [];
-      for (let i = 0; i < data.length; i += 40) { // sample pixels (skip for speed)
-        colors.push([data[i], data[i + 1], data[i + 2]]);
+    /************************************************************************
+     * Diverse color extraction (mini k-means sampling)
+     ************************************************************************/
+    function extractDiverseColors(data, k) {
+      // sample pixels to speed up
+      const samples = [];
+      const step = Math.max(4, Math.floor((data.length/4) / 3000)); // limit sample count
+      for (let i=0; i<data.length; i += 4*step) {
+        const a = data[i+3];
+        if (a < 200) continue;
+        samples.push([data[i], data[i+1], data[i+2]]);
       }
-      // init palette
-      let centroids = colors.slice(0, k);
-      for (let iter = 0; iter < 8; iter++) {
-        let groups = Array.from({ length: k }, () => []);
-        colors.forEach(c => {
-          let idx = nearestColor(c, centroids);
-          groups[idx].push(c);
-        });
-        centroids = groups.map(g => {
-          if (g.length === 0) return [0, 0, 0];
-          return g[0].map((_, i) => Math.round(g.reduce((a, b) => a + b[i], 0) / g.length));
+      // init centroids as random unique samples
+      const shuffled = samples.slice().sort(()=>0.5 - Math.random());
+      let centroids = shuffled.slice(0, k).map(s => s.slice());
+      const iterations = 6;
+      for (let iter=0; iter<iterations; iter++){
+        const groups = Array.from({length:k}, ()=>[]);
+        for (const p of samples) {
+          let idx = nearestIndex(p, centroids);
+          groups[idx].push(p);
+        }
+        // recompute centroids
+        centroids = centroids.map((c,i) => {
+          const g = groups[i];
+          if (!g || g.length===0) return c;
+          const sum = g.reduce((acc, v) => [acc[0]+v[0], acc[1]+v[1], acc[2]+v[2]], [0,0,0]);
+          return [ Math.round(sum[0]/g.length), Math.round(sum[1]/g.length), Math.round(sum[2]/g.length) ];
         });
       }
-      return centroids;
-    }
-
-    function nearestColor(color, centroids) {
-      let minDist = Infinity, idx = 0;
-      centroids.forEach((c, i) => {
-        let d = (c[0]-color[0])**2 + (c[1]-color[1])**2 + (c[2]-color[2])**2;
-        if (d < minDist) { minDist = d; idx = i; }
+      // Convert centroids to hex list (ensure unique)
+      const uniq = Array.from(new Set(centroids.map(c => rgbToHex(c[0],c[1],c[2]))));
+      // Return only the actual unique colors found, no padding
+      return uniq.map(h => {
+        const {r,g,b} = hexToRgb(h);
+        return [r,g,b];
       });
-      return idx;
+    }
+
+    function nearestIndex(p, centroids) {
+      let best = 0, bestD = Infinity;
+      for (let i=0;i<centroids.length;i++){
+        const c = centroids[i];
+        const d = (c[0]-p[0])**2 + (c[1]-p[1])**2 + (c[2]-p[2])**2;
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      return best;
     }
 
     function assignClusters(data, palette) {
-      let clusters = new Uint8Array(data.length/4);
-      for (let i = 0; i < data.length; i += 4) {
-        let idx = nearestColor([data[i], data[i+1], data[i+2]], palette);
-        clusters[i/4] = idx;
+      const len = data.length/4;
+      const clusters = new Uint8Array(len);
+      for (let i=0, pid=0; i<data.length; i+=4, pid++){
+        const p = [data[i], data[i+1], data[i+2]];
+        clusters[pid] = nearestPaletteIndex(p, palette);
       }
       return clusters;
     }
 
-    function recolorImage() {
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      for (let i = 0; i < imgData.data.length; i += 4) {
-        const idx = clusters[i/4];
-        const [r, g, b] = palette[idx];
-        imgData.data[i] = r;
-        imgData.data[i+1] = g;
-        imgData.data[i+2] = b;
+    function nearestPaletteIndex(p, palette) {
+      let best=0, bestD=Infinity;
+      for (let i=0;i<palette.length;i++){
+        const c = palette[i];
+        const d = (c[0]-p[0])**2 + (c[1]-p[1])**2 + (c[2]-p[2])**2;
+        if (d < bestD) { bestD = d; best = i; }
       }
-      ctx.putImageData(imgData, 0, 0);
+      return best;
     }
 
-    function renderColors() {
+    /************************************************************************
+     * Color highlighting functionality
+     ************************************************************************/
+    let highlightedColorIndex = -1;  // Track which color is currently highlighted
+    let highlightOverlay = null;     // Store the highlight overlay canvas
+
+    function createHighlightOverlay() {
+      if (!canvas.width || !canvas.height) return null;
+      
+      const overlay = document.createElement('canvas');
+      
+      // Get the container for positioning (not the viewport to avoid double transform)
+      const container = document.querySelector('.canvas-container');
+      if (!container) return null;
+      
+      // Get the actual displayed canvas dimensions
+      const canvasRect = canvas.getBoundingClientRect();
+      const displayWidth = Math.round(canvasRect.width);
+      const displayHeight = Math.round(canvasRect.height);
+      
+      // Set overlay canvas internal dimensions to match display size
+      overlay.width = displayWidth;
+      overlay.height = displayHeight;
+      overlay.style.position = 'absolute';
+      
+      // Position overlay to be centered in container, same as viewport
+      overlay.style.top = '50%';
+      overlay.style.left = '50%';
+      overlay.style.width = displayWidth + 'px';
+      overlay.style.height = displayHeight + 'px';
+      overlay.style.transform = 'translate(-50%, -50%)';
+      overlay.style.transformOrigin = 'center center';
+      overlay.style.pointerEvents = 'none';
+      overlay.style.zIndex = '10';
+      overlay.style.imageRendering = 'pixelated';
+      overlay.className = 'image-highlight-overlay';
+      
+      // Append overlay to the container (same level as viewport)
+      container.appendChild(overlay);
+      
+      return overlay;
+    }
+
+    function updateOverlayPosition() {
+      if (!highlightOverlay || !originalDisplayWidth || !originalDisplayHeight) return;
+      
+      // IMPORTANT: Restore canvas to original display size first
+      canvas.style.width = originalDisplayWidth + 'px';
+      canvas.style.height = originalDisplayHeight + 'px';
+      
+      // Update overlay to match canvas display
+      const canvasRect = canvas.getBoundingClientRect();
+      const overlayWidth = Math.round(canvasRect.width);
+      const overlayHeight = Math.round(canvasRect.height);
+      
+      // Update overlay dimensions
+      highlightOverlay.width = overlayWidth;
+      highlightOverlay.height = overlayHeight;
+      highlightOverlay.style.width = overlayWidth + 'px';
+      highlightOverlay.style.height = overlayHeight + 'px';
+      
+      // Apply the same transform as the viewport plus centering
+      const viewportTransform = canvasViewport.style.transform || '';
+      highlightOverlay.style.transform = `translate(-50%, -50%) ${viewportTransform}`;
+      highlightOverlay.style.transformOrigin = 'center center';
+      
+      // Preserve the animation class
+      highlightOverlay.className = 'image-highlight-overlay';
+      
+      // Redraw highlight content if needed
+      if (highlightedColorIndex >= 0) {
+        redrawHighlightContent(highlightedColorIndex);
+      }
+    }
+
+    function redrawHighlightContent(colorIndex) {
+      if (!highlightOverlay || !originalImageData || !clusters) return;
+      
+      const overlayCtx = highlightOverlay.getContext('2d');
+      const imageData = new ImageData(
+        new Uint8ClampedArray(originalImageData.width * originalImageData.height * 4),
+        originalImageData.width,
+        originalImageData.height
+      );
+
+      // Create a semi-transparent white highlight for matching pixels
+      for (let i = 0, pid = 0; i < originalImageData.data.length; i += 4, pid++) {
+        if (clusters[pid] === colorIndex) {
+          // Highlight matching pixels with white overlay
+          imageData.data[i] = 255;     // Red
+          imageData.data[i + 1] = 255; // Green
+          imageData.data[i + 2] = 255; // Blue
+          imageData.data[i + 3] = 255; // Alpha (fully opaque white)
+        } else {
+          // Make non-matching pixels transparent
+          imageData.data[i + 3] = 0;
+        }
+      }
+
+      // Create a temporary canvas with original image data
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = originalImageData.width;
+      tempCanvas.height = originalImageData.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.putImageData(imageData, 0, 0);
+      
+      // Clear and redraw to overlay canvas
+      overlayCtx.clearRect(0, 0, highlightOverlay.width, highlightOverlay.height);
+      overlayCtx.imageSmoothingEnabled = false;
+      overlayCtx.drawImage(tempCanvas, 0, 0, highlightOverlay.width, highlightOverlay.height);
+    }
+
+    function highlightColorInImage(colorIndex) {
+      if (!originalImageData || !clusters || colorIndex < 0 || colorIndex >= extractedPalette.length) {
+        clearHighlight();
+        return;
+      }
+
+      // Remove existing overlay
+      if (highlightOverlay) {
+        highlightOverlay.remove();
+      }
+
+      // Small delay to ensure DOM is settled, especially on first highlight
+      setTimeout(() => {
+        // Create new overlay
+        highlightOverlay = createHighlightOverlay();
+        if (!highlightOverlay) return;
+
+        const overlayCtx = highlightOverlay.getContext('2d');
+        const imageData = new ImageData(
+          new Uint8ClampedArray(originalImageData.width * originalImageData.height * 4),
+          originalImageData.width,
+          originalImageData.height
+        );
+
+        // Create a semi-transparent white highlight for matching pixels
+        for (let i = 0, pid = 0; i < originalImageData.data.length; i += 4, pid++) {
+          if (clusters[pid] === colorIndex) {
+            // Highlight matching pixels with white overlay
+            imageData.data[i] = 255;     // Red
+            imageData.data[i + 1] = 255; // Green
+            imageData.data[i + 2] = 255; // Blue
+            imageData.data[i + 3] = 80;  // Alpha (slightly transparent)
+          } else {
+            // Make non-matching pixels transparent
+            imageData.data[i + 3] = 0;
+          }
+        }
+
+        // Create a temporary canvas with original image data
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = originalImageData.width;
+        tempCanvas.height = originalImageData.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Scale and draw to overlay canvas
+        overlayCtx.imageSmoothingEnabled = false;
+        overlayCtx.drawImage(tempCanvas, 0, 0, highlightOverlay.width, highlightOverlay.height);
+        
+        highlightedColorIndex = colorIndex;
+        
+        // Ensure proper positioning after a brief delay
+        setTimeout(() => {
+          updateOverlayPosition();
+        }, 10);
+      }, 5);
+    }
+
+    function clearHighlight() {
+      if (highlightOverlay) {
+        highlightOverlay.remove();
+        highlightOverlay = null;
+      }
+      highlightedColorIndex = -1;
+      
+      // Remove highlight class from all swatches
+      document.querySelectorAll('.swatch.highlighted').forEach(el => {
+        el.classList.remove('highlighted');
+      });
+    }
+
+    function toggleColorHighlight(colorIndex, swatchElement) {
+      if (highlightedColorIndex === colorIndex) {
+        // If same color clicked, clear highlight
+        clearHighlight();
+      } else {
+        // Clear previous highlight and set new one
+        clearHighlight();
+        highlightColorInImage(colorIndex);
+        swatchElement.classList.add('highlighted');
+      }
+    }
+
+    /************************************************************************
+     * Color replacement system
+     ************************************************************************/
+    function enterReplacementMode(colorIndex, swatchElement) {
+      // Clear any existing highlight first
+      clearHighlight();
+      
+      // Set replacement mode
+      isReplacementMode = true;
+      selectedExtractedColorIndex = colorIndex;
+      
+      // Highlight the selected color for replacement
+      highlightColorInImage(colorIndex);
+      swatchElement.classList.add('highlighted', 'replacement-mode');
+      
+      // Add visual indicator to all swatches
+      document.querySelectorAll('.swatch').forEach(el => {
+        if (el !== swatchElement) {
+          el.classList.add('dimmed');
+        }
+      });
+      
+      // Show instruction message
+      showReplacementMessage();
+    }
+
+    function exitReplacementMode() {
+      isReplacementMode = false;
+      selectedExtractedColorIndex = -1;
+      
+      // Remove replacement mode classes
+      document.querySelectorAll('.swatch').forEach(el => {
+        el.classList.remove('replacement-mode', 'dimmed');
+      });
+      
+      // Clear highlight
+      clearHighlight();
+      
+      // Hide instruction message
+      hideReplacementMessage();
+    }
+
+    function replaceExtractedColor(newHexColor) {
+      if (!isReplacementMode || selectedExtractedColorIndex === -1) return;
+      
+      // Save current state for undo
+      saveToHistory();
+      
+      // Convert hex to RGB
+      const {r, g, b} = hexToRgb(newHexColor);
+      
+      // Replace the color in the extracted palette
+      extractedPalette[selectedExtractedColorIndex] = [r, g, b];
+      
+      // Exit replacement mode
+      exitReplacementMode();
+      
+      // Re-render the extracted palette to show the change
+      renderExtractedPalette();
+      
+      // Recolor the image if auto-recolor is enabled
+      if (doRecolor) {
+        recolorImage();
+      }
+    }
+
+    function showReplacementMessage() {
+      // Create or show replacement message
+      let msg = document.getElementById('replacementMessage');
+      if (!msg) {
+        msg = document.createElement('div');
+        msg.id = 'replacementMessage';
+        msg.style.cssText = `
+          position: fixed;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 10px 20px;
+          border-radius: 5px;
+          z-index: 1000;
+          font-size: 14px;
+        `;
+        msg.textContent = 'Replacement mode: Click a palette color to replace the highlighted color, or click the highlighted color again to cancel';
+        document.body.appendChild(msg);
+      }
+      msg.style.display = 'block';
+    }
+
+    function hideReplacementMessage() {
+      const msg = document.getElementById('replacementMessage');
+      if (msg) {
+        msg.style.display = 'none';
+      }
+    }
+
+    /************************************************************************
+     * Image zoom and pan system
+     ************************************************************************/
+    function updateViewportTransform() {
+      if (!canvasViewport) return;
+      const viewportTransform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+      canvasViewport.style.transform = viewportTransform;
+      
+      // Update the overlay transform to match, but keep centering
+      if (highlightOverlay) {
+        highlightOverlay.style.transform = `translate(-50%, -50%) ${viewportTransform}`;
+        highlightOverlay.style.transformOrigin = 'center center';
+      }
+    }
+
+    function resetZoomAndPan() {
+      zoomLevel = 1;
+      panX = 0;
+      panY = 0;
+      updateViewportTransform();
+    }
+
+    function centerImage() {
+      // Reset only pan, keep current zoom level
+      panX = 0;
+      panY = 0;
+      updateViewportTransform();
+    }
+
+    function zoomToPoint(mouseX, mouseY, zoomDelta) {
+      const container = document.querySelector('.canvas-container');
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const containerCenterX = rect.width / 2;
+      const containerCenterY = rect.height / 2;
+
+      // Calculate mouse position relative to container center
+      const mouseOffsetX = mouseX - rect.left - containerCenterX;
+      const mouseOffsetY = mouseY - rect.top - containerCenterY;
+
+      // Calculate new zoom level
+      const oldZoom = zoomLevel;
+      zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel * zoomDelta));
+
+      // Adjust pan to zoom toward mouse position
+      const zoomRatio = zoomLevel / oldZoom;
+      panX = mouseOffsetX - (mouseOffsetX - panX) * zoomRatio;
+      panY = mouseOffsetY - (mouseOffsetY - panY) * zoomRatio;
+
+      updateViewportTransform();
+    }
+
+    function initializeImageZoom() {
+      const container = document.querySelector('.canvas-container');
+      if (!container) return;
+
+      // Mouse wheel zoom
+      container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomDelta = e.deltaY < 0 ? 1.1 : 0.9;
+        zoomToPoint(e.clientX, e.clientY, zoomDelta);
+      });
+
+      // Mouse drag pan
+      container.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        container.style.cursor = 'grabbing';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const deltaX = e.clientX - lastMouseX;
+        const deltaY = e.clientY - lastMouseY;
+
+        panX += deltaX;
+        panY += deltaY;
+
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+
+        updateViewportTransform();
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+        if (container) {
+          container.style.cursor = 'grab';
+        }
+      });
+
+      // Double-click to reset zoom
+      container.addEventListener('dblclick', () => {
+        resetZoomAndPan();
+      });
+
+      // Touch support for mobile
+      let touchStartDistance = 0;
+      let touchStartPanX = 0;
+      let touchStartPanY = 0;
+
+      container.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          // Two-finger pinch zoom
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          touchStartDistance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+          );
+          touchStartPanX = panX;
+          touchStartPanY = panY;
+        } else if (e.touches.length === 1) {
+          // Single finger pan
+          isDragging = true;
+          lastMouseX = e.touches[0].clientX;
+          lastMouseY = e.touches[0].clientY;
+        }
+      });
+
+      container.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        
+        if (e.touches.length === 2) {
+          // Pinch zoom
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          const currentDistance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+          );
+          
+          if (touchStartDistance > 0) {
+            const zoomDelta = currentDistance / touchStartDistance;
+            const centerX = (touch1.clientX + touch2.clientX) / 2;
+            const centerY = (touch1.clientY + touch2.clientY) / 2;
+            
+            zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDelta));
+            panX = touchStartPanX;
+            panY = touchStartPanY;
+            
+            updateViewportTransform();
+          }
+        } else if (e.touches.length === 1 && isDragging) {
+          // Pan
+          const deltaX = e.touches[0].clientX - lastMouseX;
+          const deltaY = e.touches[0].clientY - lastMouseY;
+
+          panX += deltaX;
+          panY += deltaY;
+
+          lastMouseX = e.touches[0].clientX;
+          lastMouseY = e.touches[0].clientY;
+
+          updateViewportTransform();
+        }
+      });
+
+      container.addEventListener('touchend', () => {
+        isDragging = false;
+        touchStartDistance = 0;
+      });
+    }
+
+    /************************************************************************
+     * Image Adjustment System
+     ************************************************************************/
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function adjustBrightness(r, g, b, amount) {
+      const factor = amount / 100;
+      return [
+        clamp(r + (255 * factor), 0, 255),
+        clamp(g + (255 * factor), 0, 255),
+        clamp(b + (255 * factor), 0, 255)
+      ];
+    }
+
+    function adjustSaturation(r, g, b, amount) {
+      // Convert to HSL, adjust saturation, convert back to RGB
+      const factor = 1 + (amount / 100);
+      
+      // Calculate luminance
+      const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      
+      // Adjust saturation by interpolating between original color and luminance
+      return [
+        clamp(luminance + (r - luminance) * factor, 0, 255),
+        clamp(luminance + (g - luminance) * factor, 0, 255),
+        clamp(luminance + (b - luminance) * factor, 0, 255)
+      ];
+    }
+
+    function adjustColorPop(r, g, b, amount) {
+      // Color pop enhances vibrant colors more than muted ones
+      const factor = amount / 100;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const range = max - min;
+      
+      // Only enhance colors with good saturation
+      if (range > 30) {
+        const boost = (range / 255) * factor * 50;
+        return [
+          clamp(r + (r > 128 ? boost : -boost * 0.5), 0, 255),
+          clamp(g + (g > 128 ? boost : -boost * 0.5), 0, 255),
+          clamp(b + (b > 128 ? boost : -boost * 0.5), 0, 255)
+        ];
+      }
+      return [r, g, b];
+    }
+
+    function adjustShadow(r, g, b, amount) {
+      // Shadow adjustment affects darker tones more
+      const factor = amount / 100;
+      const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      
+      // Affect darker pixels more (shadow areas)
+      const shadowWeight = Math.max(0, (128 - luminance) / 128);
+      const adjustment = factor * shadowWeight * 80;
+      
+      return [
+        clamp(r + adjustment, 0, 255),
+        clamp(g + adjustment, 0, 255),
+        clamp(b + adjustment, 0, 255)
+      ];
+    }
+
+    function applyImageAdjustments() {
+      if (!originalImageData) return;
+
+      // Create a copy of the original image data
+      const imageData = ctx.createImageData(originalImageData.width, originalImageData.height);
+      const data = imageData.data;
+      const originalData = originalImageData.data;
+
+      // Apply adjustments to each pixel
+      for (let i = 0; i < originalData.length; i += 4) {
+        let r = originalData[i];
+        let g = originalData[i + 1];
+        let b = originalData[i + 2];
+        const a = originalData[i + 3];
+
+        // Apply adjustments in order
+        if (brightness !== 0) {
+          [r, g, b] = adjustBrightness(r, g, b, brightness);
+        }
+        
+        if (saturation !== 0) {
+          [r, g, b] = adjustSaturation(r, g, b, saturation);
+        }
+        
+        if (colorPop !== 0) {
+          [r, g, b] = adjustColorPop(r, g, b, colorPop);
+        }
+        
+        if (shadow !== 0) {
+          [r, g, b] = adjustShadow(r, g, b, shadow);
+        }
+
+        // Set the adjusted values
+        data[i] = Math.round(r);
+        data[i + 1] = Math.round(g);
+        data[i + 2] = Math.round(b);
+        data[i + 3] = a;
+      }
+
+      // Store adjusted image data and update canvas
+      adjustedImageData = imageData;
+      ctx.putImageData(imageData, 0, 0);
+      
+      // Update extracted palette if we have adjustments
+      if (brightness !== 0 || saturation !== 0 || colorPop !== 0 || shadow !== 0) {
+        updateExtractedPaletteFromAdjustments();
+      }
+    }
+
+    function updateExtractedPaletteFromAdjustments() {
+      if (!adjustedImageData || !extractedPalette) return;
+      
+      // Re-extract colors from adjusted image
+      const newPalette = extractDiverseColors(adjustedImageData.data, TARGET_PER_PALETTE);
+      const newClusters = assignClusters(adjustedImageData.data, newPalette);
+      
+      // Update the palette while preserving any manual edits
+      extractedPalette = newPalette;
+      clusters = newClusters;
+      
+      // Re-render the palette
+      renderExtractedPalette();
+    }
+
+    function resetImageAdjustments() {
+      brightness = 0;
+      saturation = 0;
+      colorPop = 0;
+      shadow = 0;
+      
+      // Reset sliders
+      document.getElementById('brightnessSlider').value = 0;
+      document.getElementById('saturationSlider').value = 0;
+      document.getElementById('colorPopSlider').value = 0;
+      document.getElementById('shadowSlider').value = 0;
+      
+      // Reset display values
+      document.getElementById('brightnessValue').textContent = '0';
+      document.getElementById('saturationValue').textContent = '0';
+      document.getElementById('colorPopValue').textContent = '0';
+      document.getElementById('shadowValue').textContent = '0';
+      
+      // Restore original image
+      if (originalImageData) {
+        ctx.putImageData(originalImageData, 0, 0);
+        adjustedImageData = null;
+        
+        // Re-extract original colors
+        extractedPalette = extractDiverseColors(originalImageData.data, TARGET_PER_PALETTE);
+        clusters = assignClusters(originalImageData.data, extractedPalette);
+        renderExtractedPalette();
+      }
+    }
+
+    function initializeImageAdjustments() {
+      // Brightness control
+      const brightnessSlider = document.getElementById('brightnessSlider');
+      const brightnessValue = document.getElementById('brightnessValue');
+      
+      brightnessSlider.addEventListener('input', (e) => {
+        brightness = parseInt(e.target.value);
+        brightnessValue.textContent = brightness;
+        applyImageAdjustments();
+      });
+
+      // Saturation control
+      const saturationSlider = document.getElementById('saturationSlider');
+      const saturationValue = document.getElementById('saturationValue');
+      
+      saturationSlider.addEventListener('input', (e) => {
+        saturation = parseInt(e.target.value);
+        saturationValue.textContent = saturation;
+        applyImageAdjustments();
+      });
+
+      // Color Pop control
+      const colorPopSlider = document.getElementById('colorPopSlider');
+      const colorPopValue = document.getElementById('colorPopValue');
+      
+      colorPopSlider.addEventListener('input', (e) => {
+        colorPop = parseInt(e.target.value);
+        colorPopValue.textContent = colorPop;
+        applyImageAdjustments();
+      });
+
+      // Shadow control
+      const shadowSlider = document.getElementById('shadowSlider');
+      const shadowValue = document.getElementById('shadowValue');
+      
+      shadowSlider.addEventListener('input', (e) => {
+        shadow = parseInt(e.target.value);
+        shadowValue.textContent = shadow;
+        applyImageAdjustments();
+      });
+
+      // Arrow button controls for fine adjustment
+      const addArrowListeners = (sliderType, sliderId, valueId, minVal, maxVal) => {
+        const slider = document.getElementById(sliderId);
+        const valueDisplay = document.getElementById(valueId);
+        const upBtn = document.getElementById(`${sliderType}Up`);
+        const downBtn = document.getElementById(`${sliderType}Down`);
+        
+        upBtn.addEventListener('click', () => {
+          let currentVal = parseInt(slider.value);
+          if (currentVal < maxVal) {
+            currentVal += 1;
+            slider.value = currentVal;
+            valueDisplay.textContent = currentVal;
+            
+            // Update the corresponding variable and apply adjustments
+            if (sliderType === 'brightness') brightness = currentVal;
+            else if (sliderType === 'saturation') saturation = currentVal;
+            else if (sliderType === 'colorPop') colorPop = currentVal;
+            else if (sliderType === 'shadow') shadow = currentVal;
+            
+            applyImageAdjustments();
+          }
+        });
+        
+        downBtn.addEventListener('click', () => {
+          let currentVal = parseInt(slider.value);
+          if (currentVal > minVal) {
+            currentVal -= 1;
+            slider.value = currentVal;
+            valueDisplay.textContent = currentVal;
+            
+            // Update the corresponding variable and apply adjustments
+            if (sliderType === 'brightness') brightness = currentVal;
+            else if (sliderType === 'saturation') saturation = currentVal;
+            else if (sliderType === 'colorPop') colorPop = currentVal;
+            else if (sliderType === 'shadow') shadow = currentVal;
+            
+            applyImageAdjustments();
+          }
+        });
+      };
+      
+      // Add arrow listeners for each slider
+      addArrowListeners('brightness', 'brightnessSlider', 'brightnessValue', -100, 100);
+      addArrowListeners('saturation', 'saturationSlider', 'saturationValue', -100, 100);
+      addArrowListeners('colorPop', 'colorPopSlider', 'colorPopValue', 0, 100);
+      addArrowListeners('shadow', 'shadowSlider', 'shadowValue', -100, 100);
+
+      // Reset button
+      const resetButton = document.getElementById('resetAdjustments');
+      resetButton.addEventListener('click', resetImageAdjustments);
+      
+      // Center button
+      const centerButton = document.getElementById('centerImage');
+      centerButton.addEventListener('click', centerImage);
+      
+      // Download button
+      const downloadButton = document.getElementById('downloadImage');
+      downloadButton.addEventListener('click', downloadProcessedImage);
+    }
+
+    function downloadProcessedImage() {
+      if (!canvas) {
+        alert('No image to download');
+        return;
+      }
+
+      try {
+        // Create a new canvas with the current processed image
+        const downloadCanvas = document.createElement('canvas');
+        const downloadCtx = downloadCanvas.getContext('2d');
+        
+        // Set canvas size to original image dimensions
+        downloadCanvas.width = originalCanvasWidth || canvas.width;
+        downloadCanvas.height = originalCanvasHeight || canvas.height;
+        
+        // Get the current canvas image data (with all adjustments applied)
+        const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Draw the processed image to download canvas
+        downloadCtx.putImageData(currentImageData, 0, 0);
+        
+        // Create download link
+        const link = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `image-color-adjusted-${timestamp}.png`;
+        
+        // Convert canvas to blob and create download URL
+        downloadCanvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          link.href = url;
+          link.download = filename;
+          
+          // Trigger download
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clean up
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          
+          // Show success message
+          const originalText = document.getElementById('downloadImage').textContent;
+          document.getElementById('downloadImage').textContent = '✅ Downloaded!';
+          setTimeout(() => {
+            document.getElementById('downloadImage').textContent = originalText;
+          }, 2000);
+        }, 'image/png', 1.0);
+        
+      } catch (error) {
+        console.error('Download failed:', error);
+        alert('Failed to download image. Please try again.');
+      }
+    }
+
+    /************************************************************************
+     * Undo/Redo system for color palette changes
+     ************************************************************************/
+    function saveToHistory() {
+      // Remove any redo history when making a new change
+      paletteHistory = paletteHistory.slice(0, historyIndex + 1);
+      
+      // Add current state to history
+      const currentState = extractedPalette.map(color => [...color]);
+      paletteHistory.push(currentState);
+      
+      // Limit history size
+      if (paletteHistory.length > MAX_HISTORY) {
+        paletteHistory.shift();
+      } else {
+        historyIndex++;
+      }
+      
+      updateUndoRedoButtons();
+    }
+
+    function undo(steps = 10) {
+      const targetIndex = Math.max(0, historyIndex - steps);
+      if (targetIndex < historyIndex && paletteHistory[targetIndex]) {
+        historyIndex = targetIndex;
+        extractedPalette = paletteHistory[historyIndex].map(color => [...color]);
+        renderExtractedPalette();
+        if (doRecolor) recolorImage();
+        clearHighlight();
+        updateUndoRedoButtons();
+      }
+    }
+
+    function redo(steps = 10) {
+      const targetIndex = Math.min(paletteHistory.length - 1, historyIndex + steps);
+      if (targetIndex > historyIndex && paletteHistory[targetIndex]) {
+        historyIndex = targetIndex;
+        extractedPalette = paletteHistory[historyIndex].map(color => [...color]);
+        renderExtractedPalette();
+        if (doRecolor) recolorImage();
+        clearHighlight();
+        updateUndoRedoButtons();
+      }
+    }
+
+    function updateUndoRedoButtons() {
+      const canUndo = historyIndex > 0;
+      const canRedo = historyIndex < paletteHistory.length - 1;
+      
+      undoColors.disabled = !canUndo;
+      redoColors.disabled = !canRedo;
+      
+      undoColors.style.opacity = canUndo ? '1' : '0.5';
+      redoColors.style.opacity = canRedo ? '1' : '0.5';
+    }
+
+    function initializeHistory() {
+      if (extractedPalette && extractedPalette.length > 0) {
+        paletteHistory = [extractedPalette.map(color => [...color])];
+        historyIndex = 0;
+        updateUndoRedoButtons();
+      }
+    }
+
+    /************************************************************************
+     * Sort colors by hue for better visual organization
+     ************************************************************************/
+    function sortColorsByHue(colors) {
+      return colors.map((color, originalIndex) => {
+        const {h, s, l} = rgbToHsl(color[0], color[1], color[2]);
+        return {
+          color,
+          originalIndex,
+          hue: h,
+          saturation: s,
+          lightness: l
+        };
+      }).sort((a, b) => {
+        // First sort by hue
+        if (Math.abs(a.hue - b.hue) > 10) {
+          return a.hue - b.hue;
+        }
+        // Then by saturation (more saturated first)
+        if (Math.abs(a.saturation - b.saturation) > 0.1) {
+          return b.saturation - a.saturation;
+        }
+        // Finally by lightness
+        return a.lightness - b.lightness;
+      });
+    }
+
+    /************************************************************************
+     * Render extracted palette in four columns, organized by color
+     ************************************************************************/
+    function renderExtractedPalette() {
       colorList.innerHTML = "";
-      palette.forEach((color, idx) => {
-        const hex = rgbToHex(...color);
+      
+      // Sort colors by hue for better visual organization
+      const sortedColors = sortColorsByHue(extractedPalette);
+      
+      for (let i = 0; i < sortedColors.length; i++) {
+        const colorData = sortedColors[i];
+        const color = colorData.color;
+        const originalIndex = colorData.originalIndex;
+        const hex = rgbToHex(color[0], color[1], color[2]);
         const item = document.createElement("div");
         item.className = "color-item";
-
-        const preview = document.createElement("div");
-        preview.className = "color-preview";
-        preview.style.background = hex;
+        const sw = document.createElement("div");
+        sw.className = "swatch";
+        sw.style.background = hex;
 
         const inputs = document.createElement("div");
-        inputs.className = "color-inputs";
+        inputs.className = "inputs";
 
         const picker = document.createElement("input");
-        picker.type = "color";
-        picker.value = hex;
-        picker.addEventListener("input", e => {
-          const { r, g, b } = hexToRgb(e.target.value);
-          palette[idx] = [r, g, b];
-          preview.style.background = e.target.value;
-          hexBox.value = e.target.value;
-          rgbBox.value = `rgb(${r},${g},${b})`;
-          recolorImage();
-        });
+        picker.type = "color"; picker.value = hex;
 
         const hexBox = document.createElement("input");
-        hexBox.value = hex;
-        hexBox.addEventListener("input", e => {
-          if (/^#([0-9A-Fa-f]{6})$/.test(e.target.value)) {
-            const { r, g, b } = hexToRgb(e.target.value);
-            palette[idx] = [r, g, b];
-            preview.style.background = e.target.value;
-            picker.value = e.target.value;
-            rgbBox.value = `rgb(${r},${g},${b})`;
-            recolorImage();
+        hexBox.type = "text"; hexBox.value = hex;
+
+        const rgbBox = document.createElement("input");
+        rgbBox.type = "text"; rgbBox.value = `rgb(${color[0]},${color[1]},${color[2]})`;
+
+        // Clicking a swatch will highlight corresponding pixels in the image or enter replacement mode
+        sw.addEventListener("click", (e) => {
+          e.preventDefault();
+          
+          if (isReplacementMode && selectedExtractedColorIndex === originalIndex) {
+            // Exit replacement mode if clicking the same color
+            exitReplacementMode();
+          } else if (isReplacementMode) {
+            // Switch to different color in replacement mode
+            exitReplacementMode();
+            enterReplacementMode(originalIndex, sw);
+          } else {
+            // Normal highlight mode or enter replacement mode
+            if (highlightedColorIndex === originalIndex) {
+              // If already highlighted, enter replacement mode
+              enterReplacementMode(originalIndex, sw);
+            } else {
+              // Normal highlight
+              toggleColorHighlight(originalIndex, sw);
+            }
           }
         });
 
-        const rgbBox = document.createElement("input");
-        rgbBox.value = `rgb(${color[0]},${color[1]},${color[2]})`;
-        rgbBox.addEventListener("input", e => {
-          const match = e.target.value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-          if (match) {
-            const [_, r, g, b] = match.map(Number);
-            palette[idx] = [r, g, b];
-            const hexVal = rgbToHex(r,g,b);
-            preview.style.background = hexVal;
-            picker.value = hexVal;
-            hexBox.value = hexVal;
-            recolorImage();
+        // Double-clicking a swatch will allow color editing
+        sw.addEventListener("dblclick", () => {
+          // Set this extracted slot to chosen color and recolor image
+          const {r,g,b} = hexToRgb(picker.value);
+          extractedPalette[originalIndex] = [r,g,b];
+          hexBox.value = picker.value;
+          rgbBox.value = `rgb(${r},${g},${b})`;
+          saveToHistory();
+          if (doRecolor) recolorImage();
+        });
+
+        picker.addEventListener("input", () => {
+          const {r,g,b} = hexToRgb(picker.value);
+          extractedPalette[originalIndex] = [r,g,b];
+          hexBox.value = picker.value;
+          rgbBox.value = `rgb(${r},${g},${b})`;
+          saveToHistory();
+          if (doRecolor) recolorImage();
+        });
+
+        hexBox.addEventListener("input", () => {
+          const v = hexBox.value.trim();
+          if (/^#([A-Fa-f0-9]{6})$/.test(v)) {
+            const {r,g,b} = hexToRgb(v);
+            extractedPalette[originalIndex] = [r,g,b];
+            picker.value = v;
+            rgbBox.value = `rgb(${r},${g},${b})`;
+            saveToHistory();
+            if (doRecolor) recolorImage();
+          }
+        });
+
+        rgbBox.addEventListener("input", () => {
+          const m = rgbBox.value.match(/rgb\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\)/i);
+          if (m) {
+            const r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
+            extractedPalette[i] = [r,g,b];
+            const h = rgbToHex(r,g,b);
+            picker.value = h;
+            hexBox.value = h;
+            saveToHistory();
+            if (doRecolor) recolorImage();
           }
         });
 
         inputs.appendChild(picker);
         inputs.appendChild(hexBox);
         inputs.appendChild(rgbBox);
-
-        item.appendChild(preview);
+        item.appendChild(sw);
         item.appendChild(inputs);
         colorList.appendChild(item);
-      });
+      }
     }
 
-    // helpers
-    function rgbToHex(r, g, b) {
-      return "#" + [r,g,b].map(x => x.toString(16).padStart(2,"0")).join("");
+    /************************************************************************
+     * Recolor image: replace every pixel with nearest color from
+     * the currently active palette (extractedPalette or applied)
+     ************************************************************************/
+    function recolorImage() {
+      if (!originalImageData || !clusters) return;
+      // We'll map each cluster index (0..49) to the nearest color in extractedPalette.
+      // If user applied a tab palette, extractedPalette will be replaced with that palette.
+      const imgData = new ImageData(new Uint8ClampedArray(originalImageData.data), originalImageData.width, originalImageData.height);
+      // Map each pixel to extractedPalette[ clusters[pixelIndex] ]
+      for (let i=0, pid=0; i<imgData.data.length; i+=4, pid++){
+        const idx = clusters[pid];
+        const col = extractedPalette[idx] || extractedPalette[idx%extractedPalette.length];
+        imgData.data[i] = col[0];
+        imgData.data[i+1] = col[1];
+        imgData.data[i+2] = col[2];
+        // Preserve alpha from original
+        imgData.data[i+3] = originalImageData.data[i+3];
+      }
+      ctx.putImageData(imgData, 0, 0);
     }
-    function hexToRgb(hex) {
-      const bigint = parseInt(hex.slice(1), 16);
-      return { r: (bigint >> 16)&255, g: (bigint >> 8)&255, b: bigint&255 };
+
+    /************************************************************************
+     * TAB UI: render tabs with previews and each expanded to 50 swatches
+     ************************************************************************/
+    function renderTabs() {
+      tabButtons.innerHTML = "";
+      const names = Object.keys(PALETTES);
+      names.forEach((name, i) => {
+        const btn = document.createElement("button");
+        btn.className = "tab-btn" + (i===0 ? " active" : "");
+        btn.title = name;
+        btn.innerHTML = `<div style="font-weight:600;font-size:12px;">${name}</div>`;
+        
+        // Add delete button for custom palettes
+        if (!BASE_PALETTES[name]) {
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "delete-btn";
+          deleteBtn.innerHTML = "×";
+          deleteBtn.title = "Delete palette";
+          deleteBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (confirm(`Delete palette "${name}"?`)) {
+              delete PALETTES[name];
+              saveCustomPalettes();
+              renderTabs();
+              updatePaletteCount();
+              // Open first available tab
+              const remainingNames = Object.keys(PALETTES);
+              if (remainingNames.length > 0) {
+                openTab(remainingNames[0]);
+              }
+            }
+          });
+          btn.appendChild(deleteBtn);
+        }
+        
+        const preview = document.createElement("div");
+        preview.className = "tab-preview";
+        // show first 10 colors as preview strip
+        const previewCount = Math.min(10, PALETTES[name].length);
+        for (let j=0;j<previewCount;j++){
+          const sw = document.createElement("div");
+          sw.style.background = PALETTES[name][j];
+          preview.appendChild(sw);
+        }
+        btn.appendChild(preview);
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          openTab(name);
+        });
+        tabButtons.appendChild(btn);
+      });
+      // open first tab by default if no current tab
+      if (!currentTab || !PALETTES[currentTab]) {
+        const firstTab = Object.keys(PALETTES)[0];
+        if (firstTab) openTab(firstTab);
+      }
     }
+
+    function openTab(name) {
+      currentTab = name;
+      tabLabel.textContent = name;
+      tabContent.innerHTML = "";
+      const colors = PALETTES[name];
+      
+      // Create color picker for each swatch if it's a custom palette
+      const isCustom = !BASE_PALETTES[name];
+      
+      // create swatches
+      for (let i=0;i<colors.length;i++){
+        const cell = document.createElement("div");
+        cell.className = "palette-cell";
+        cell.style.background = colors[i];
+        cell.title = colors[i];
+        
+        // Add click handler for color replacement
+        cell.addEventListener("click", () => {
+          if (isReplacementMode) {
+            replaceExtractedColor(colors[i]);
+          }
+        });
+        
+        // Add hover effect for replacement mode
+        cell.addEventListener("mouseenter", () => {
+          if (isReplacementMode) {
+            cell.classList.add('replacement-target');
+          }
+        });
+        
+        cell.addEventListener("mouseleave", () => {
+          cell.classList.remove('replacement-target');
+        });
+        
+        if (isCustom) {
+          // Make custom palette colors editable
+          cell.addEventListener("dblclick", () => {
+            const input = document.createElement("input");
+            input.type = "color";
+            input.value = colors[i];
+            input.style.position = "absolute";
+            input.style.opacity = "0";
+            input.addEventListener("change", () => {
+              colors[i] = input.value;
+              PALETTES[name] = colors;
+              cell.style.background = input.value;
+              cell.title = input.value;
+              saveCustomPalettes();
+              renderTabs(); // Refresh tab preview
+            });
+            document.body.appendChild(input);
+            input.click();
+            input.remove();
+          });
+        }
+        
+        // clicking a cell will apply whole palette (50 colors) into extractedPalette mapping
+        cell.addEventListener("click", () => {
+          // APPLY: we want to apply the entire PALETTE (50 colors) as the active palette
+          // Map the PALETTE hex array -> extractedPalette array of [r,g,b]
+          extractedPalette = colors.map(h => {
+            const {r,g,b} = hexToRgb(h);
+            return [r,g,b];
+          });
+          // Recompute clusters to still map image regions reasonably:
+          // If clusters exist (from previous extraction), keep them; recolorImage maps cluster -> extractedPalette.
+          renderExtractedPalette();
+          if (doRecolor) recolorImage();
+        });
+        tabContent.appendChild(cell);
+      }
+    }
+
+    // initial render
+    renderTabs();
+
+    /************************************************************************
+     * Helper: nearestPaletteIndex for arbitrary palette (used earlier)
+     ************************************************************************/
+    function nearestPaletteIndexForColor(p, palette) {
+      let best=0, bestD=Infinity;
+      for (let i=0;i<palette.length;i++){
+        const c = palette[i];
+        const d = (c[0]-p[0])**2 + (c[1]-p[1])**2 + (c[2]-p[2])**2;
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      return best;
+    }
+
+    /************************************************************************
+     * Window resize handling and responsive adjustments
+     ************************************************************************/
+    window.addEventListener("resize", () => {
+      // Recalculate canvas display size when window resizes
+      if (canvas.width > 0 && canvas.height > 0) {
+        const maxWidth = canvas.parentElement.clientWidth - 20;
+        const maxHeight = window.innerHeight * 0.7;
+        
+        let displayWidth = canvas.width;
+        let displayHeight = canvas.height;
+        
+        if (displayWidth > maxWidth || displayHeight > maxHeight) {
+          const scale = Math.min(maxWidth / displayWidth, maxHeight / displayHeight);
+          displayWidth = displayWidth * scale;
+          displayHeight = displayHeight * scale;
+        }
+        
+        canvas.style.width = displayWidth + 'px';
+        canvas.style.height = displayHeight + 'px';
+        
+        // Update overlay position after canvas resize
+        updateOverlayPosition();
+      }
+    });
+    
+    // Add keyboard shortcuts
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch(e.key) {
+          case 's':
+            e.preventDefault();
+            if (currentTab && customPaletteName.value.trim()) {
+              saveCurrentPalette.click();
+            }
+            break;
+          case 'e':
+            e.preventDefault();
+            exportPalettes.click();
+            break;
+          case 'i':
+            e.preventDefault();
+            if (extractedPalette && extractedPalette.length > 0) {
+              saveImagePalette.click();
+            }
+            break;
+          case 'r':
+            e.preventDefault();
+            if (extractedPalette && extractedPalette.length > 0 && currentTab) {
+              replaceWithPalette.click();
+            }
+            break;
+          case 'z':
+            e.preventDefault();
+            undo(10);
+            break;
+          case 'y':
+            e.preventDefault();
+            redo(10);
+            break;
+        }
+      }
+    });
+    
+    // Add escape key to exit replacement mode
+    document.addEventListener("keydown", (e) => {
+      if (e.key === 'Escape' && isReplacementMode) {
+        e.preventDefault();
+        exitReplacementMode();
+      }
+    });
+
+    // Add Escape key to clear highlights
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        clearHighlight();
+      }
+    });
+
+    // Update overlay position on window resize
+    window.addEventListener("resize", () => {
+      setTimeout(() => {
+        updateOverlayPosition();
+      }, 100);
+    });
+
+    // Detect zoom changes and update overlay position
+    let lastDevicePixelRatio = window.devicePixelRatio;
+    function detectZoomChange() {
+      if (window.devicePixelRatio !== lastDevicePixelRatio) {
+        lastDevicePixelRatio = window.devicePixelRatio;
+        setTimeout(() => {
+          updateOverlayPosition();
+        }, 100);
+      }
+    }
+
+    // Check for zoom changes periodically (reduced frequency)
+    setInterval(detectZoomChange, 50000);
+
+    // Also listen for specific zoom-related events
+    window.addEventListener("wheel", (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl+wheel = zoom, update overlay after a delay
+        setTimeout(() => {
+          updateOverlayPosition();
+        }, 500);
+      }
+    });
+
+    // Listen for keyboard zoom shortcuts
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '0')) {
+        // Zoom shortcuts, update overlay after a delay
+        setTimeout(() => {
+          updateOverlayPosition();
+        }, 500);
+      }
+    });
+
+    // Update overlay when window gains focus (catches zoom changes while away)
+    window.addEventListener("focus", () => {
+      setTimeout(() => {
+        updateOverlayPosition();
+      }, 100);
+    });
+
+    // Initialize zoom system
+    initializeImageZoom();
+    
+    // Initialize image adjustments
+    initializeImageAdjustments();
   </script>
 </body>
 </html>
