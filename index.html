@@ -124,6 +124,28 @@
       background:var(--panel);
       border-radius:8px;
       padding:4px;
+      transition: all 0.2s ease;
+      cursor: move;
+    }
+    
+    .color-item:hover {
+      background: var(--panel-hover, #2a2a2a);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    
+    .color-item[draggable="true"] {
+      user-select: none;
+    }
+    
+    .color-item.dragging {
+      opacity: 0.5;
+      transform: rotate(5deg);
+    }
+    
+    .color-item.drag-over {
+      border-top: 2px solid #2196F3;
+      margin-top: 2px;
     }
     .swatch {
       width:22px; height:22px; border-radius:5px; border:1px solid rgba(0,0,0,0.4); flex-shrink:0; cursor:pointer; transition: all 0.2s ease;
@@ -525,6 +547,40 @@
         <h2>Extracted Palette</h2>
         <div class="small">Four columns • Click to highlight • Double-click to edit</div>
       </div>
+      
+      <!-- Color Merge Control -->
+      <div class="color-merge-control" style="background: var(--panel); padding: 10px; border-radius: 6px; border: 1px solid #333; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <label style="font-size: 12px; color: #aaa; font-weight: 600;">
+            🔗 Merge Similar Colors: <span id="mergeThresholdValue">5</span>%
+          </label>
+          <div style="display: flex; gap: 4px;">
+            <button id="undoMerge" class="btn" style="font-size: 10px; padding: 3px 6px; background: #ff8888; opacity: 0.5;" disabled title="Undo last merge">
+              ↶ Undo
+            </button>
+            <button id="redoMerge" class="btn" style="font-size: 10px; padding: 3px 6px; background: #61d6d6; opacity: 0.5;" disabled title="Redo last undone merge">
+              ↷ Redo
+            </button>
+            <button id="applyMerge" class="btn" style="font-size: 11px; padding: 4px 8px;">
+              Apply Merge
+            </button>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="adjustment-btn" id="mergeThresholdDown" style="background: #2196F3; border: none; color: white; width: 20px; height: 20px; border-radius: 3px; cursor: pointer; font-size: 10px;">−</button>
+          <input type="range" id="mergeThresholdSlider" min="1" max="80" value="5" 
+                 style="flex: 1; accent-color: #2196F3;">
+          <button class="adjustment-btn" id="mergeThresholdUp" style="background: #2196F3; border: none; color: white; width: 20px; height: 20px; border-radius: 3px; cursor: pointer; font-size: 10px;">+</button>
+        </div>
+        <div style="font-size: 10px; color: #888; margin-top: 4px;">
+          Lower values = more aggressive merging • Higher values = preserve more distinct colors
+        </div>
+      </div>
+      
+      <div style="font-size: 10px; color: #aaa; margin-bottom: 8px; padding: 4px; background: rgba(33, 150, 243, 0.1); border-left: 3px solid #2196F3; border-radius: 3px;">
+        💡 <strong>Tip:</strong> Drag and drop colors to reorder your palette
+      </div>
+      
       <div class="color-list" id="colorList"></div>
     </div>
 
@@ -566,8 +622,66 @@
      ************************************************************************/
     const BASE_PALETTES = {
       "Recent": [],
+      "VibrantSpectrum": [
+  "#ff0000","#ff1a00","#ff3300","#ff4d00","#ff6600","#ff8000","#ff9900","#ffb300","#ffcc00","#ffe600",
+  "#ffff00","#e6ff00","#ccff00","#b3ff00","#99ff00","#80ff00","#66ff00","#4dff00","#33ff00","#1aff00",
+  "#00ff00","#00ff1a","#00ff33","#00ff4d","#00ff66","#00ff80","#00ff99","#00ffb3","#00ffcc","#00ffe6",
+  "#00ffff","#00e6ff","#00ccff","#00b3ff","#0099ff","#0080ff","#0066ff","#004dff","#0033ff","#001aff",
+  "#0000ff","#1a00ff","#3300ff","#4d00ff","#6600ff","#8000ff","#9900ff","#b300ff","#cc00ff","#e600ff",
+  "#ff00ff","#ff00e6","#ff00cc","#ff00b3","#ff0099","#ff0080","#ff0066","#ff004d","#ff0033","#ff001a",
+  "#ff6666","#ff8080","#ff9999","#ffb3b3","#ffcccc","#ffe6e6","#ff99cc","#ff66b2","#ff3399","#ff1980",
+  "#cc99ff","#b366ff","#9933ff","#7f19ff","#6600ff","#9966ff","#b399ff","#ccb3ff","#e6ccff","#f2e6ff",
+  "#99ffff","#66e6ff","#33ccff","#19b3ff","#0099ff","#3399ff","#66b3ff","#99ccff","#cce6ff","#e6f7ff",
+  "#99ff99","#66e666","#33cc33","#19b319","#009900","#33b333","#66cc66","#99e699","#cce6cc","#e6f7e6"
+],
+"MutedHarmony": [
+  "#6d4c41","#8d6e63","#a1887f","#bcaaa4","#d7ccc8","#efebe9","#5d4037","#4e342e","#3e2723","#2e1c17",
+  "#455a64","#607d8b","#78909c","#90a4ae","#b0bec5","#cfd8dc","#eceff1","#37474f","#263238","#1c262b",
+  "#827717","#9e9d24","#afb42b","#c0ca33","#d4e157","#dce775","#e6ee9c","#f0f4c3","#f9fbe7","#e6ee9c",
+  "#33691e","#558b2f","#689f38","#7cb342","#8bc34a","#9ccc65","#aed581","#c5e1a5","#dcedc8","#f1f8e9",
+  "#004d40","#00695c","#00796b","#00897b","#009688","#26a69a","#4db6ac","#80cbc4","#b2dfdb","#e0f2f1",
+  "#3e2723","#5d4037","#6d4c41","#795548","#8d6e63","#a1887f","#bcaaa4","#d7ccc8","#efebe9","#fafafa",
+  "#9c27b0","#8e24aa","#7b1fa2","#6a1b9a","#4a148c","#311b92","#3949ab","#303f9f","#283593","#1a237e",
+  "#c2185b","#ad1457","#880e4f","#7b1fa2","#6a1b9a","#4527a0","#283593","#1565c0","#0277bd","#006064"
+], 
+"RPGEssentials": [
+  // Nature
+  "#1b5e20","#2e7d32","#43a047","#66bb6a","#81c784","#a5d6a7","#33691e","#558b2f","#7cb342","#9ccc65",
+  "#0d47a1","#1565c0","#1976d2","#1e88e5","#42a5f5","#64b5f6","#90caf9","#bbdefb","#01579b","#0277bd",
+  // Architecture
+  "#3e2723","#4e342e","#5d4037","#6d4c41","#795548","#8d6e63","#a1887f","#bcaaa4","#d7ccc8","#efebe9",
+  "#424242","#616161","#757575","#9e9e9e","#bdbdbd","#e0e0e0","#eeeeee","#f5f5f5","#cfd8dc","#90a4ae",
+  // Characters
+  "#ffede0","#ffe0bd","#ffcd94","#eac086","#d1a36a","#a47149","#8d5524","#5c3a1a","#3d2b1f","#1c140d",
+  "#2c1b0c","#4b2e12","#6a4020","#8c5a2b","#b98e68","#d2b48c","#2e2e2e","#666666","#999999","#cccccc",
+  // Magic
+  "#311b92","#512da8","#673ab7","#7e57c2","#9575cd","#b39ddb","#4a148c","#7b1fa2","#9c27b0","#ba68c8",
+  "#ff5722","#ff7043","#ff8a65","#ff9800","#ffa726","#ffb74d","#00e676","#00c853","#1de9b6","#00acc1",
+  // Dungeon
+  "#212121","#37474f","#546e7a","#607d8b","#78909c","#90a4ae","#b0bec5","#cfd8dc","#b71c1c","#d32f2f"
+], "TropicalParadise": [
+  "#ff5722","#ff7043","#ff8a65","#ffab91","#ffccbc","#ff9800","#ffa726","#ffb74d","#ffcc80","#ffe0b2",
+  "#ffeb3b","#ffee58","#fff176","#fff59d","#fff9c4","#fbc02d","#fdd835","#ffee58","#fff176","#fff9c4",
+  "#8bc34a","#9ccc65","#aed581","#c5e1a5","#dcedc8","#43a047","#66bb6a","#81c784","#a5d6a7","#c8e6c9",
+  "#00bcd4","#26c6da","#4dd0e1","#80deea","#b2ebf2","#0097a7","#00acc1","#00bcd4","#26c6da","#4dd0e1",
+  "#03a9f4","#29b6f6","#4fc3f7","#81d4fa","#b3e5fc","#0288d1","#039be5","#03a9f4","#29b6f6","#4fc3f7",
+  "#e91e63","#f06292","#f48fb1","#f8bbd0","#fce4ec","#ad1457","#c2185b","#d81b60","#e91e63","#f06292",
+  "#4caf50","#66bb6a","#81c784","#a5d6a7","#c8e6c9","#2e7d32","#388e3c","#43a047","#4caf50","#66bb6a",
+  "#ff5252","#ff4081","#e040fb","#7c4dff","#536dfe","#448aff","#40c4ff","#18ffff","#64ffda","#69f0ae"
+], 
+"AncientEchoes": [
+  "#3e2723","#4e342e","#5d4037","#6d4c41","#795548","#8d6e63","#a1887f","#bcaaa4","#d7ccc8","#efebe9",
+  "#6d4c41","#8d6e63","#a1887f","#bcaaa4","#d7ccc8","#efebe9","#fafafa","#f5f5f5","#eeeeee","#e0e0e0",
+  "#827717","#9e9d24","#afb42b","#c0ca33","#d4e157","#dce775","#e6ee9c","#f0f4c3","#f9fbe7","#f0f4c3",
+  "#b71c1c","#c62828","#d32f2f","#e53935","#f44336","#ef5350","#e57373","#ef9a9a","#ffcdd2","#ffebee",
+  "#e65100","#ef6c00","#f57c00","#fb8c00","#ff9800","#ffa726","#ffb74d","#ffcc80","#ffe0b2","#fff3e0",
+  "#3e2723","#4e342e","#5d4037","#6d4c41","#795548","#8d6e63","#a1887f","#bcaaa4","#d7ccc8","#efebe9",
+  "#263238","#37474f","#455a64","#546e7a","#607d8b","#78909c","#90a4ae","#b0bec5","#cfd8dc","#eceff1",
+  "#d4af37","#b8860b","#cd853f","#daa520","#deb887","#c0c0c0","#a9a9a9","#808080","#696969","#2f4f4f"
+],
 
       "NaturalWorld": [
+        
   // Greens (grass, leaves, moss)
   "#1b5e20","#2e7d32","#388e3c","#43a047","#4caf50","#66bb6a","#81c784","#a5d6a7","#c8e6c9","#e8f5e9",
   "#33691e","#558b2f","#689f38","#7cb342","#8bc34a","#9ccc65","#aed581","#c5e1a5","#dcedc8","#f1f8e9",
@@ -1364,6 +1478,7 @@
     let colorPop = 0;
     let shadow = 0;
     let adjustedImageData = null;
+    let mergeThreshold = 5; // Percentage for color similarity merging
     
     // Custom palette controls
     const customPaletteName = document.getElementById("customPaletteName");
@@ -1386,6 +1501,7 @@
     
     // Undo/Redo system
     let paletteHistory = [];     // Store palette states
+    let clustersHistory = [];    // Store cluster states
     let historyIndex = -1;       // Current position in history
     const MAX_HISTORY = 50;      // Maximum history entries
 
@@ -2457,6 +2573,189 @@
       // Download button
       const downloadButton = document.getElementById('downloadImage');
       downloadButton.addEventListener('click', downloadProcessedImage);
+      
+      // Color merge controls
+      const mergeSlider = document.getElementById('mergeThresholdSlider');
+      const mergeValue = document.getElementById('mergeThresholdValue');
+      const applyMergeBtn = document.getElementById('applyMerge');
+      const undoMergeBtn = document.getElementById('undoMerge');
+      const redoMergeBtn = document.getElementById('redoMerge');
+      
+      mergeSlider.addEventListener('input', (e) => {
+        mergeThreshold = parseInt(e.target.value);
+        mergeValue.textContent = mergeThreshold;
+      });
+      
+      applyMergeBtn.addEventListener('click', mergeSimilarColors);
+      
+      undoMergeBtn.addEventListener('click', () => {
+        console.log('Undo merge button clicked');
+        console.log('Current history index:', historyIndex);
+        console.log('History length:', paletteHistory.length);
+        console.log('Can undo:', historyIndex > 0);
+        undo(1); // Undo one step for merge
+      });
+      
+      redoMergeBtn.addEventListener('click', () => {
+        redo(1); // Redo one step for merge
+      });
+      
+      // Add arrow listeners for merge threshold
+      addArrowListeners('mergeThreshold', 'mergeThresholdSlider', 'mergeThresholdValue', 1, 20);
+    }
+
+    function calculateColorDistance(color1, color2) {
+      // Calculate Euclidean distance in RGB space
+      const dr = color1[0] - color2[0];
+      const dg = color1[1] - color2[1];
+      const db = color1[2] - color2[2];
+      return Math.sqrt(dr * dr + dg * dg + db * db);
+    }
+
+    function mergeSimilarColors() {
+      if (!extractedPalette || extractedPalette.length === 0) {
+        alert('No colors to merge. Please load an image first.');
+        return;
+      }
+
+      console.log('Starting merge with threshold:', mergeThreshold + '%');
+      console.log('Original palette length:', extractedPalette.length);
+      console.log('Clusters available:', !!clusters);
+      console.log('Original image data available:', !!originalImageData);
+
+      // Save current state for undo
+      saveToHistory();
+
+      // Convert threshold percentage to RGB distance
+      // Max possible distance in RGB space is sqrt(255^2 + 255^2 + 255^2) ≈ 441
+      const maxDistance = Math.sqrt(255 * 255 * 3);
+      const thresholdDistance = (mergeThreshold / 100) * maxDistance;
+      
+      console.log('Threshold distance:', thresholdDistance);
+
+      // Create a mapping from old color indices to new color indices
+      const colorMergeMap = {};
+      const mergedColors = [];
+      const usedColors = new Set();
+
+      // Initialize merge map - each color points to itself initially
+      for (let i = 0; i < extractedPalette.length; i++) {
+        colorMergeMap[i] = i;
+      }
+
+      // Find groups of similar colors and merge them
+      for (let i = 0; i < extractedPalette.length; i++) {
+        if (usedColors.has(i)) continue;
+
+        const group = [i];
+        let groupColor = [...extractedPalette[i]];
+
+        // Find all colors similar to color i
+        for (let j = i + 1; j < extractedPalette.length; j++) {
+          if (usedColors.has(j)) continue;
+
+          const distance = calculateColorDistance(extractedPalette[i], extractedPalette[j]);
+          
+          if (distance <= thresholdDistance) {
+            group.push(j);
+            console.log(`Merging color ${i} [${extractedPalette[i]}] with color ${j} [${extractedPalette[j]}], distance: ${distance.toFixed(2)}`);
+            // Add to running average
+            groupColor[0] += extractedPalette[j][0];
+            groupColor[1] += extractedPalette[j][1];
+            groupColor[2] += extractedPalette[j][2];
+          }
+        }
+
+        // Calculate average color for the group
+        if (group.length > 1) {
+          groupColor[0] = Math.round(groupColor[0] / group.length);
+          groupColor[1] = Math.round(groupColor[1] / group.length);
+          groupColor[2] = Math.round(groupColor[2] / group.length);
+          console.log(`Group of ${group.length} colors averaged to [${groupColor}]`);
+        }
+
+        // Add merged color to result
+        const newIndex = mergedColors.length;
+        mergedColors.push(groupColor);
+
+        // Map all colors in this group to the new index
+        for (const oldIndex of group) {
+          colorMergeMap[oldIndex] = newIndex;
+          usedColors.add(oldIndex);
+        }
+      }
+
+      console.log('Merged colors length:', mergedColors.length);
+
+      // Update clusters to use new color indices
+      if (clusters) {
+        for (let i = 0; i < clusters.length; i++) {
+          const oldColorIndex = clusters[i];
+          clusters[i] = colorMergeMap[oldColorIndex] || 0;
+        }
+        console.log('Updated clusters');
+      }
+
+      // Update the extracted palette
+      const originalCount = extractedPalette.length;
+      extractedPalette = mergedColors;
+      
+      // Apply merged colors to the actual image
+      if (canvas && ctx && originalImageData && clusters) {
+        const width = originalImageData.width;
+        const height = originalImageData.height;
+        
+        // Create new image data with merged colors
+        const newImageData = ctx.createImageData(width, height);
+        const newData = newImageData.data;
+        const originalData = originalImageData.data;
+        
+        for (let i = 0; i < originalData.length; i += 4) {
+          const pixelIndex = i / 4;
+          const clusterIndex = clusters[pixelIndex];
+          
+          if (clusterIndex < extractedPalette.length) {
+            const newColor = extractedPalette[clusterIndex];
+            newData[i] = newColor[0];     // R
+            newData[i + 1] = newColor[1]; // G
+            newData[i + 2] = newColor[2]; // B
+            newData[i + 3] = originalData[i + 3]; // A (preserve alpha)
+          } else {
+            // Fallback: keep original pixel
+            newData[i] = originalData[i];
+            newData[i + 1] = originalData[i + 1];
+            newData[i + 2] = originalData[i + 2];
+            newData[i + 3] = originalData[i + 3];
+          }
+        }
+        
+        // Update the canvas with merged colors
+        ctx.putImageData(newImageData, 0, 0);
+        
+        // Also update originalImageData so other operations work correctly
+        originalImageData = newImageData;
+      }
+      
+      // Re-render the palette
+      renderExtractedPalette();
+      
+      // Show feedback
+      const mergedCount = originalCount - mergedColors.length;
+      if (mergedCount > 0) {
+        const originalText = applyMergeBtn.textContent;
+        applyMergeBtn.textContent = `✅ Merged ${mergedCount}`;
+        setTimeout(() => {
+          applyMergeBtn.textContent = originalText;
+        }, 2000);
+      } else {
+        const originalText = applyMergeBtn.textContent;
+        applyMergeBtn.textContent = '❌ No merge';
+        setTimeout(() => {
+          applyMergeBtn.textContent = originalText;
+        }, 2000);
+      }
+      
+      // No need to call recolorImage() since we've already applied the changes directly
     }
 
     function downloadProcessedImage() {
@@ -2519,14 +2818,20 @@
     function saveToHistory() {
       // Remove any redo history when making a new change
       paletteHistory = paletteHistory.slice(0, historyIndex + 1);
+      clustersHistory = clustersHistory.slice(0, historyIndex + 1);
       
       // Add current state to history
       const currentState = extractedPalette.map(color => [...color]);
       paletteHistory.push(currentState);
       
+      // Save clusters state if available
+      const currentClusters = clusters ? new Uint8Array(clusters) : null;
+      clustersHistory.push(currentClusters);
+      
       // Limit history size
       if (paletteHistory.length > MAX_HISTORY) {
         paletteHistory.shift();
+        clustersHistory.shift();
       } else {
         historyIndex++;
       }
@@ -2535,14 +2840,69 @@
     }
 
     function undo(steps = 10) {
+      console.log('Undo function called with steps:', steps);
+      console.log('Current historyIndex:', historyIndex);
+      console.log('paletteHistory length:', paletteHistory.length);
+      
       const targetIndex = Math.max(0, historyIndex - steps);
+      console.log('Target index:', targetIndex);
+      
       if (targetIndex < historyIndex && paletteHistory[targetIndex]) {
+        console.log('Undo condition met, proceeding with undo');
         historyIndex = targetIndex;
         extractedPalette = paletteHistory[historyIndex].map(color => [...color]);
+        
+        // Restore clusters from history if available
+        if (clustersHistory[historyIndex]) {
+          clusters = new Uint8Array(clustersHistory[historyIndex]);
+          console.log('Restored clusters from history');
+        } else {
+          // Fallback: regenerate clusters if no saved state
+          if (originalImageData && extractedPalette.length > 0) {
+            clusters = assignClusters(originalImageData.data, extractedPalette);
+            console.log('Regenerated clusters as fallback');
+          }
+        }
+        
+        // Restore the image using the restored clusters and palette
+        if (originalImageData && clusters && extractedPalette.length > 0) {
+          console.log('Restoring image with saved clusters');
+          const width = originalImageData.width;
+          const height = originalImageData.height;
+          const newImageData = ctx.createImageData(width, height);
+          const newData = newImageData.data;
+          const originalData = originalImageData.data;
+          
+          for (let i = 0; i < originalData.length; i += 4) {
+            const pixelIndex = i / 4;
+            const clusterIndex = clusters[pixelIndex];
+            
+            if (clusterIndex < extractedPalette.length) {
+              const color = extractedPalette[clusterIndex];
+              newData[i] = color[0];     // R
+              newData[i + 1] = color[1]; // G
+              newData[i + 2] = color[2]; // B
+              newData[i + 3] = originalData[i + 3]; // A
+            } else {
+              // Fallback to original pixel
+              newData[i] = originalData[i];
+              newData[i + 1] = originalData[i + 1];
+              newData[i + 2] = originalData[i + 2];
+              newData[i + 3] = originalData[i + 3];
+            }
+          }
+          
+          ctx.putImageData(newImageData, 0, 0);
+          console.log('Image restored successfully');
+        }
+        
         renderExtractedPalette();
-        if (doRecolor) recolorImage();
         clearHighlight();
         updateUndoRedoButtons();
+      } else {
+        console.log('Undo condition NOT met');
+        console.log('targetIndex < historyIndex:', targetIndex < historyIndex);
+        console.log('paletteHistory[targetIndex] exists:', !!paletteHistory[targetIndex]);
       }
     }
 
@@ -2551,8 +2911,50 @@
       if (targetIndex > historyIndex && paletteHistory[targetIndex]) {
         historyIndex = targetIndex;
         extractedPalette = paletteHistory[historyIndex].map(color => [...color]);
+        
+        // Restore clusters from history if available
+        if (clustersHistory[historyIndex]) {
+          clusters = new Uint8Array(clustersHistory[historyIndex]);
+          console.log('Restored clusters from history for redo');
+        } else {
+          // Fallback: regenerate clusters if no saved state
+          if (originalImageData && extractedPalette.length > 0) {
+            clusters = assignClusters(originalImageData.data, extractedPalette);
+            console.log('Regenerated clusters as fallback for redo');
+          }
+        }
+        
+        // Restore the image using the restored clusters and palette
+        if (originalImageData && clusters && extractedPalette.length > 0) {
+          const width = originalImageData.width;
+          const height = originalImageData.height;
+          const newImageData = ctx.createImageData(width, height);
+          const newData = newImageData.data;
+          const originalData = originalImageData.data;
+          
+          for (let i = 0; i < originalData.length; i += 4) {
+            const pixelIndex = i / 4;
+            const clusterIndex = clusters[pixelIndex];
+            
+            if (clusterIndex < extractedPalette.length) {
+              const color = extractedPalette[clusterIndex];
+              newData[i] = color[0];     // R
+              newData[i + 1] = color[1]; // G
+              newData[i + 2] = color[2]; // B
+              newData[i + 3] = originalData[i + 3]; // A
+            } else {
+              // Fallback to original pixel
+              newData[i] = originalData[i];
+              newData[i + 1] = originalData[i + 1];
+              newData[i + 2] = originalData[i + 2];
+              newData[i + 3] = originalData[i + 3];
+            }
+          }
+          
+          ctx.putImageData(newImageData, 0, 0);
+        }
+        
         renderExtractedPalette();
-        if (doRecolor) recolorImage();
         clearHighlight();
         updateUndoRedoButtons();
       }
@@ -2562,16 +2964,32 @@
       const canUndo = historyIndex > 0;
       const canRedo = historyIndex < paletteHistory.length - 1;
       
+      // Update main undo/redo buttons
       undoColors.disabled = !canUndo;
       redoColors.disabled = !canRedo;
       
       undoColors.style.opacity = canUndo ? '1' : '0.5';
       redoColors.style.opacity = canRedo ? '1' : '0.5';
+      
+      // Update merge undo/redo buttons if they exist
+      const undoMergeBtn = document.getElementById('undoMerge');
+      const redoMergeBtn = document.getElementById('redoMerge');
+      
+      if (undoMergeBtn) {
+        undoMergeBtn.disabled = !canUndo;
+        undoMergeBtn.style.opacity = canUndo ? '1' : '0.5';
+      }
+      
+      if (redoMergeBtn) {
+        redoMergeBtn.disabled = !canRedo;
+        redoMergeBtn.style.opacity = canRedo ? '1' : '0.5';
+      }
     }
 
     function initializeHistory() {
       if (extractedPalette && extractedPalette.length > 0) {
         paletteHistory = [extractedPalette.map(color => [...color])];
+        clustersHistory = [clusters ? new Uint8Array(clusters) : null];
         historyIndex = 0;
         updateUndoRedoButtons();
       }
@@ -2607,6 +3025,111 @@
     /************************************************************************
      * Render extracted palette in four columns, organized by color
      ************************************************************************/
+    /************************************************************************
+     * Drag and Drop functionality for palette reordering
+     ************************************************************************/
+    let draggedItem = null;
+    let draggedIndex = null;
+
+    function handleDragStart(e) {
+      draggedItem = e.target;
+      draggedIndex = parseInt(e.target.dataset.sortedIndex);
+      e.target.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/html', e.target.outerHTML);
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      
+      // Add visual feedback
+      const targetItem = e.target.closest('.color-item');
+      if (targetItem && targetItem !== draggedItem) {
+        // Remove drag-over class from all items
+        document.querySelectorAll('.color-item').forEach(item => {
+          item.classList.remove('drag-over');
+        });
+        targetItem.classList.add('drag-over');
+      }
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      const targetItem = e.target.closest('.color-item');
+      
+      if (targetItem && targetItem !== draggedItem) {
+        const targetIndex = parseInt(targetItem.dataset.sortedIndex);
+        
+        // Reorder the palette
+        reorderPalette(draggedIndex, targetIndex);
+      }
+      
+      // Clean up visual feedback
+      document.querySelectorAll('.color-item').forEach(item => {
+        item.classList.remove('drag-over');
+      });
+    }
+
+    function handleDragEnd(e) {
+      e.target.classList.remove('dragging');
+      
+      // Clean up visual feedback
+      document.querySelectorAll('.color-item').forEach(item => {
+        item.classList.remove('drag-over');
+      });
+      
+      draggedItem = null;
+      draggedIndex = null;
+    }
+
+    function reorderPalette(fromIndex, toIndex) {
+      if (fromIndex === toIndex) return;
+      
+      // Save current state for undo
+      saveToHistory();
+      
+      // Get the sorted palette to work with the current visual order
+      const sortedColors = sortColorsByHue(extractedPalette);
+      
+      // Create a mapping from sorted indices to original indices
+      const originalIndices = sortedColors.map(colorData => colorData.originalIndex);
+      
+      // Reorder the original indices array
+      const movedOriginalIndex = originalIndices.splice(fromIndex, 1)[0];
+      originalIndices.splice(toIndex, 0, movedOriginalIndex);
+      
+      // Create new palette based on the new order
+      const newPalette = originalIndices.map(origIndex => [...extractedPalette[origIndex]]);
+      
+      // Update cluster mappings to match new palette order
+      if (clusters) {
+        const indexMapping = {};
+        for (let i = 0; i < originalIndices.length; i++) {
+          const oldIndex = originalIndices[i];
+          indexMapping[oldIndex] = i;
+        }
+        
+        // Update clusters to point to new indices
+        for (let i = 0; i < clusters.length; i++) {
+          const oldClusterIndex = clusters[i];
+          clusters[i] = indexMapping[oldClusterIndex] !== undefined ? indexMapping[oldClusterIndex] : 0;
+        }
+      }
+      
+      // Update the extracted palette
+      extractedPalette = newPalette;
+      
+      // Re-render the palette and update the image
+      renderExtractedPalette();
+      if (doRecolor) recolorImage();
+      
+      console.log(`Moved color from position ${fromIndex} to ${toIndex}`);
+    }
+
+    /************************************************************************
+     * Palette rendering and management
+     ************************************************************************/
     function renderExtractedPalette() {
       colorList.innerHTML = "";
       
@@ -2620,9 +3143,31 @@
         const hex = rgbToHex(color[0], color[1], color[2]);
         const item = document.createElement("div");
         item.className = "color-item";
+        item.draggable = true;
+        item.dataset.originalIndex = originalIndex;
+        item.dataset.sortedIndex = i;
+        
         const sw = document.createElement("div");
         sw.className = "swatch";
         sw.style.background = hex;
+        
+        // Add drag handle visual indicator
+        const dragHandle = document.createElement("div");
+        dragHandle.className = "drag-handle";
+        dragHandle.innerHTML = "⋮⋮";
+        dragHandle.style.cssText = `
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          color: rgba(255,255,255,0.8);
+          font-size: 8px;
+          line-height: 6px;
+          cursor: move;
+          text-shadow: 0 0 2px rgba(0,0,0,0.8);
+          pointer-events: none;
+        `;
+        sw.style.position = "relative";
+        sw.appendChild(dragHandle);
 
         const inputs = document.createElement("div");
         inputs.className = "inputs";
@@ -2709,6 +3254,13 @@
         inputs.appendChild(rgbBox);
         item.appendChild(sw);
         item.appendChild(inputs);
+        
+        // Add drag and drop event listeners
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragend', handleDragEnd);
+        
         colorList.appendChild(item);
       }
     }
