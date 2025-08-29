@@ -1696,11 +1696,11 @@
     });
 
     undoColors.addEventListener("click", () => {
-      undo(10);
+      undo(100);
     });
 
     redoColors.addEventListener("click", () => {
-      redo(10);
+      redo(100);
     });
 
     // Handle confirmation preference checkbox
@@ -2906,7 +2906,7 @@
       }
     }
 
-    function redo(steps = 10) {
+    function redo(steps = 100) {
       const targetIndex = Math.min(paletteHistory.length - 1, historyIndex + steps);
       if (targetIndex > historyIndex && paletteHistory[targetIndex]) {
         historyIndex = targetIndex;
@@ -3489,11 +3489,11 @@
             break;
           case 'z':
             e.preventDefault();
-            undo(10);
+            undo(100);
             break;
           case 'y':
             e.preventDefault();
-            redo(10);
+            redo(100);
             break;
         }
       }
