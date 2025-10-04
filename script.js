@@ -1,9 +1,8 @@
-  
-    /************************************************************************
-     * 25 base palettes (anchor colors). We'll programmatically expand each
-     * into 50 tonal variations at runtime.
-     ************************************************************************/
-    const BASE_PALETTES = {
+/************************************************************************
+ * 25 base palettes (anchor colors). We'll programmatically expand each
+ * into 50 tonal variations at runtime.
+ ************************************************************************/
+const BASE_PALETTES = {
       "Recent": [],
       "VibrantSpectrum": [
   "#ff0000","#ff1a00","#ff3300","#ff4d00","#ff6600","#ff8000","#ff9900","#ffb300","#ffcc00","#ffe600",
@@ -1179,6 +1178,16 @@
         const a = data[i+3];
         if (a < 200) continue;
         samples.push([data[i], data[i+1], data[i+2]]);
+      }
+            // --- ADD THIS BLOCK: cap sample count for huge images ---
+      const MAX_SAMPLES = 20000;
+      if (samples.length > MAX_SAMPLES) {
+        // Shuffle and slice to MAX_SAMPLES
+        for (let i = samples.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [samples[i], samples[j]] = [samples[j], samples[i]];
+        }
+        samples.length = MAX_SAMPLES;
       }
       // init centroids as random unique samples
       const shuffled = samples.slice().sort(()=>0.5 - Math.random());
@@ -2784,20 +2793,6 @@
             input.remove();
           });
         }
-        
-        // clicking a cell will apply whole palette (50 colors) into extractedPalette mapping
-        cell.addEventListener("click", () => {
-          // APPLY: we want to apply the entire PALETTE (50 colors) as the active palette
-          // Map the PALETTE hex array -> extractedPalette array of [r,g,b]
-          extractedPalette = colors.map(h => {
-            const {r,g,b} = hexToRgb(h);
-            return [r,g,b];
-          });
-          // Recompute clusters to still map image regions reasonably:
-          // If clusters exist (from previous extraction), keep them; recolorImage maps cluster -> extractedPalette.
-          renderExtractedPalette();
-          if (doRecolor) recolorImage();
-        });
         tabContent.appendChild(cell);
       }
     }

@@ -1,9 +1,8 @@
-
-    :root {
-      --bg: #161616;
-      --panel: #222;
-      --muted: #aaa;
-    }
+:root {
+  --bg: #161616;
+  --panel: #222;
+  --muted: #aaa;
+}
     html,body { margin:0; background:var(--bg); color:#eee; font-family:Inter,system-ui,Arial; min-height:100vh; }
     .app {
       display: grid;
