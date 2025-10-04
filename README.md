@@ -1,10 +1,11 @@
 # Image Color Palette Swap
 
+[🚀 **Back to App**](index.html) | [📱 **Live Demo**](https://josephpotapenko.github.io/Image-Color-Pallet-Swap/)
+
 A comprehensive web-based application for advanced image color manipulation, palette extraction, and real-time color replacement. Transform any image using 25+ professionally curated color palettes, each expanded to 75 unique tonal variations, with pixel-perfect precision and instant visual feedback.
 
 *Developed with AI assistance to create an intuitive and powerful color manipulation tool.*
 
-## Features
 ## Core Functionality
 
 ### 🎨 Advanced Color Extraction & Analysis
@@ -52,6 +53,7 @@ A comprehensive web-based application for advanced image color manipulation, pal
   - `Escape`: Clear highlights/exit modes
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
 - **Local Processing**: All operations happen in-browser - no data uploaded to servers
+
 ## Quick Start Guide
 
 ### Basic Workflow

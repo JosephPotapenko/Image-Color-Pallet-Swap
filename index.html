@@ -7,9 +7,19 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- README Button -->
+  <a href="readme.html" id="readmeBtn" class="readme-btn" title="View Documentation">
+    📖 README
+  </a>
+  
   <div class="app">
     <div id="left">
-      <h2>Upload Image</h2>
+      <div class="header-row">
+        <h2>Upload Image</h2>
+        <button id="themeToggle" class="theme-toggle-btn" title="Toggle Light/Dark Mode">
+          🌙
+        </button>
+      </div>
       <input id="fileInput" type="file" accept="image/*">
       <div id="imageControls" style="margin-top:10px; display:none;">
         <button id="saveImagePalette" class="btn primary" title="Save the extracted colors from this image as a new palette (Ctrl+I)">

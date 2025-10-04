@@ -3,7 +3,36 @@
   --panel: #222;
   --muted: #aaa;
 }
-    html,body { margin:0; background:var(--bg); color:#eee; font-family:Inter,system-ui,Arial; min-height:100vh; }
+
+/* README Button */
+.readme-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  background: var(--panel);
+  color: #eee;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #444;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.readme-btn:hover {
+  background: #3a3a3a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.readme-btn:active {
+  transform: translateY(0);
+}
+
+html,body { margin:0; background:var(--bg); color:#eee; font-family:Inter,system-ui,Arial; min-height:100vh; }
     .app {
       display: grid;
       grid-template-columns: 1fr 1fr 360px;
@@ -15,7 +44,226 @@
 
     /* Left (image) */
     #left { text-align:center; }
-    #left h2 { margin:6px 0 10px; font-weight:600; display: block; width: 100%; }
+    
+    /* Header row with theme toggle */
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+    
+    #left h2 { margin:6px 0 0; font-weight:600; }
+    
+    /* Theme toggle button */
+    .theme-toggle-btn {
+      background: var(--panel);
+      color: #eee;
+      border: 1px solid #444;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .theme-toggle-btn:hover {
+      background: #3a3a3a;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    
+    .theme-toggle-btn:active {
+      transform: translateY(0);
+    }
+    
+    /* Light mode styles */
+    body.light-mode {
+      --bg: #f5f5f5;
+      --panel: #ffffff;
+      --muted: #666;
+      color: #333;
+    }
+    
+    body.light-mode .theme-toggle-btn {
+      background: var(--panel);
+      color: #333;
+      border-color: #ddd;
+    }
+    
+    body.light-mode .theme-toggle-btn:hover {
+      background: #f0f0f0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    body.light-mode .readme-btn {
+      background: var(--panel);
+      color: #333;
+      border-color: #ddd;
+    }
+    
+    body.light-mode .readme-btn:hover {
+      background: #f0f0f0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* Light mode container styles */
+    body.light-mode .canvas-container {
+      background: #fafbfc;
+      border-color: #e1e5e9;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    body.light-mode .color-list {
+      background: rgba(255, 255, 255, 0.9);
+      border-color: #e9ecef;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    body.light-mode .color-list::before {
+      color: #666;
+    }
+
+    body.light-mode .color-list::-webkit-scrollbar-track {
+      background: #f1f3f4;
+    }
+
+    body.light-mode .color-list::-webkit-scrollbar-thumb {
+      background: #c1c8cd;
+    }
+
+    body.light-mode .color-item {
+      background: #ffffff;
+      border-color: #e9ecef;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    body.light-mode .inputs input {
+      background: #ffffff;
+      border-color: #dee2e6;
+      color: #495057;
+    }
+
+    body.light-mode .inputs input:focus {
+      border-color: #80bdff;
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+      background: #ffffff;
+    }
+
+    body.light-mode .tab-buttons {
+      background: #f8f9fa;
+      border-color: #dee2e6;
+    }
+
+    body.light-mode .tab-btn {
+      background: #f8f9fa;
+      border-color: #dee2e6;
+      color: #495057;
+    }
+
+    body.light-mode .tab-btn.active {
+      background: #ffffff;
+      color: #212529;
+      border-bottom-color: #ffffff;
+      box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    body.light-mode .tab-btn:hover {
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    body.light-mode .tab-content {
+      background: #ffffff;
+      border-color: #dee2e6;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    body.light-mode .controls,
+    body.light-mode .custom-palette-controls,
+    body.light-mode .image-adjustments {
+      background: #f8f9fa;
+      border-color: #e9ecef;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    body.light-mode button {
+      background: #ffffff;
+      border-color: #dee2e6;
+      color: #495057;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    body.light-mode button:hover {
+      background: #f8f9fa;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    body.light-mode button:disabled {
+      background: #f1f3f4;
+      color: #6c757d;
+      box-shadow: none;
+    }
+
+    body.light-mode .slider-container input[type="range"] {
+      background: #f1f3f4;
+    }
+
+    body.light-mode .adjustment-group {
+      background: #ffffff;
+      border-color: #e9ecef;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    body.light-mode .palette-cell {
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    body.light-mode .palette-cell:hover {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    body.light-mode h1, 
+    body.light-mode h2, 
+    body.light-mode h3 {
+      color: #212529;
+    }
+
+    body.light-mode label {
+      color: #495057;
+    }
+
+    body.light-mode .delete-btn {
+      background: #f8f9fa;
+      color: #dc3545;
+      border-color: #dee2e6;
+    }
+
+    body.light-mode .delete-btn:hover {
+      background: #dc3545;
+      color: #ffffff;
+    }
+
+    body.light-mode .custom-palette-name {
+      background: #ffffff;
+      color: #495057;
+      border-color: #dee2e6;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    body.light-mode .custom-palette-name:focus {
+      background: #ffffff;
+      border-color: #80bdff;
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+      color: #495057;
+    }
+
     #fileInput { margin-bottom:12px; display: block; margin-left: auto; margin-right: auto; }
     #canvas { 
       max-width: none;
@@ -423,5 +671,13 @@
       }
       .custom-palette-actions .btn {
         width: 100%;
+      }
+      
+      /* README button mobile adjustments */
+      .readme-btn {
+        top: 10px;
+        left: 10px;
+        font-size: 11px;
+        padding: 6px 10px;
       }
     }

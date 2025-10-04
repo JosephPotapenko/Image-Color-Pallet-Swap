@@ -2940,6 +2940,45 @@ const BASE_PALETTES = {
       }, 100);
     });
 
+    /************************************************************************
+     * Theme toggle functionality
+     ************************************************************************/
+    function initializeThemeToggle() {
+      const themeToggle = document.getElementById('themeToggle');
+      
+      // Load saved theme preference
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
+        themeToggle.textContent = '🌙'; // Show moon for light mode (to toggle to dark)
+      } else {
+        document.body.classList.remove('light-mode');
+        themeToggle.textContent = '🌞'; // Show sun for dark mode (to toggle to light)
+      }
+      
+      // Theme toggle event listener
+      themeToggle.addEventListener('click', () => {
+        const isLightMode = document.body.classList.contains('light-mode');
+        
+        if (isLightMode) {
+          // Switch to dark mode
+          document.body.classList.remove('light-mode');
+          themeToggle.textContent = '🌞';
+          localStorage.setItem('theme', 'dark');
+        } else {
+          // Switch to light mode
+          document.body.classList.add('light-mode');
+          themeToggle.textContent = '🌙';
+          localStorage.setItem('theme', 'light');
+        }
+      });
+    }
+
+    // Initialize all functionality
+    initializeImageZoom();
+    initializeImageAdjustments();
+    initializeThemeToggle();
+
     // Initialize zoom system
     initializeImageZoom();
     
